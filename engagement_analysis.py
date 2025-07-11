@@ -20,9 +20,9 @@ class UserEngagementAnalyzer:
         self.scaler = StandardScaler()
         
     def load_and_explore_data(self):
-        """Load and explore the engagement data"""
+        """Load and explore the engagement data - """
         print("=" * 60)
-        print("USER ENGAGEMENT DATA ANALYSIS")
+        print("DAY 1: EXPLORATORY DATA ANALYSIS")
         print("=" * 60)
         
         print(f"Dataset shape: {self.df.shape}")
@@ -30,11 +30,43 @@ class UserEngagementAnalyzer:
         print(f"Number of unique users: {self.df['user_id'].nunique()}")
         print(f"Number of unique content pieces: {self.df['content_id'].nunique()}")
         
-        print("\nContent types distribution:")
-        print(self.df['content_type'].value_counts())
+        # Most common content types
+        print("\n1. MOST COMMON CONTENT TYPES:")
+        content_counts = self.df['content_type'].value_counts()
+        for content_type, count in content_counts.items():
+            percentage = (count / len(self.df)) * 100
+            print(f"   {content_type}: {count} interactions ({percentage:.1f}%)")
         
-        print(f"\nOverall click rate: {self.df['clicked'].mean():.2%}")
-        print(f"Average time viewed: {self.df['time_viewed_in_sec'].mean():.1f} seconds")
+        #Time spent analysis
+        print("\n2. TIME SPENT ON PAGES:")
+        time_stats = self.df.groupby('content_type')['time_viewed_in_sec'].agg(['mean', 'median', 'std']).round(1)
+        print("   Average time by content type:")
+        for content_type in time_stats.index:
+            print(f"   {content_type}: {time_stats.loc[content_type, 'mean']}s avg, "
+                  f"{time_stats.loc[content_type, 'median']}s median")
+        
+        #Click rate analysis
+        print("\n3. CLICK RATES BY CONTENT TYPE:")
+        click_rates = self.df.groupby('content_type')['clicked'].mean().sort_values(ascending=False)
+        for content_type, rate in click_rates.items():
+            print(f"   {content_type}: {rate:.1%} click rate")
+        
+        print(f"\n   Overall click rate: {self.df['clicked'].mean():.2%}")
+        print(f"   Total clicks: {self.df['clicked'].sum():,} out of {len(self.df):,} interactions")
+        
+        #User engagement frequency
+        print("\n4. USER ENGAGEMENT FREQUENCY:")
+        user_interactions = self.df.groupby('user_id').size()
+        print(f"   Average interactions per user: {user_interactions.mean():.1f}")
+        print(f"   Median interactions per user: {user_interactions.median():.1f}")
+        print(f"   Most active user: {user_interactions.max()} interactions")
+        print(f"   Least active user: {user_interactions.min()} interactions")
+        
+        # Additional insights
+        print("\n5. ADDITIONAL INSIGHTS:")
+        print(f"   Average time viewed overall: {self.df['time_viewed_in_sec'].mean():.1f} seconds")
+        print(f"   Median time viewed: {self.df['time_viewed_in_sec'].median():.1f} seconds")
+        print(f"   Longest session: {self.df['time_viewed_in_sec'].max():.1f} seconds")
         
         return self.df.describe()
     
@@ -86,10 +118,10 @@ class UserEngagementAnalyzer:
         print(f"Created {len(self.user_features.columns)} features for {len(self.user_features)} users")
         return self.user_features
     
-    def perform_user_segmentation(self, n_clusters=4):
-        """Perform user segmentation using K-means clustering"""
+    def perform_user_segmentation(self, n_clusters=3):
+        """DAY 2: Perform user segmentation using K-means clustering"""
         print("\n" + "=" * 60)
-        print("PERFORMING USER SEGMENTATION")
+        print("DAY 2: USER SEGMENTATION")
         print("=" * 60)
         
         # Prepare features for clustering
@@ -118,40 +150,69 @@ class UserEngagementAnalyzer:
         segment_names = self.name_segments(segment_summary)
         self.user_features['segment_name'] = self.user_features['segment'].map(segment_names)
         
-        # Debug: Show actual user counts per segment
+        # Debug: Showing actual user counts per segment
         print("\nDEBUG: Actual user counts per segment:")
         segment_counts = self.user_features['segment_name'].value_counts()
         print(segment_counts)
         
+        # Debug: Showing engagement score distribution
+        print("\nDEBUG: Engagement score statistics:")
+        print("Segment summary with calculated engagement scores:")
+        for segment in segment_summary.index:
+            stats = segment_summary.loc[segment]
+            engagement_score = (stats['click_rate'] * 0.5 + 
+                              min(stats['avg_time_viewed'] / 60, 1) * 0.25 + 
+                              min(stats['total_interactions'] / 12, 1) * 0.25)
+            segment_name = self.user_features[self.user_features['segment'] == segment]['segment_name'].iloc[0]
+            user_count = len(self.user_features[self.user_features['segment'] == segment])
+            print(f"  {segment_name}: {engagement_score:.3f} score, {user_count} users")
+        
         return self.user_features
     
     def name_segments(self, segment_summary):
-        """Name segments based on their characteristics"""
+        """Name segments by directly ranking them by engagement score"""
         segment_names = {}
         
         print("\nDEBUG: Segment characteristics before naming:")
         print(segment_summary)
         
+        # Calculate engagement scores for all segments
+        segment_scores = {}
         for segment in segment_summary.index:
+            stats = segment_summary.loc[segment]
+            engagement_score = (stats['click_rate'] * 0.5 + 
+                              min(stats['avg_time_viewed'] / 60, 1) * 0.25 + 
+                              min(stats['total_interactions'] / 12, 1) * 0.25)
+            segment_scores[segment] = engagement_score
+        
+        # Sort segments by engagement score (highest to lowest)
+        sorted_segments = sorted(segment_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        print(f"\nDEBUG: Segments ranked by engagement score:")
+        for i, (segment, score) in enumerate(sorted_segments):
+            print(f"  Rank {i+1}: Segment {segment} - Score: {score:.3f}")
+        
+        # Assign names based on ranking (guaranteed distribution)
+        for i, (segment, score) in enumerate(sorted_segments):
             stats = segment_summary.loc[segment]
             
             print(f"\nSegment {segment}:")
             print(f"  Click rate: {stats['click_rate']:.3f}")
             print(f"  Avg time viewed: {stats['avg_time_viewed']:.1f}s")
             print(f"  Total interactions: {stats['total_interactions']:.1f}")
+            print(f"  Engagement Score: {score:.3f}")
             
-            if stats['click_rate'] > 0.5 and stats['avg_time_viewed'] > 30:
-                segment_names[segment] = "Highly Engaged"
-                print(f"  -> Assigned: Highly Engaged")
-            elif stats['click_rate'] > 0.3 and stats['total_interactions'] > 8:
-                segment_names[segment] = "Active Users"
-                print(f"  -> Assigned: Active Users")
-            elif stats['avg_time_viewed'] > 25 and stats['click_rate'] < 0.3:
-                segment_names[segment] = "Browsers"
-                print(f"  -> Assigned: Browsers")
-            else:
-                segment_names[segment] = "Casual Users"
-                print(f"  -> Assigned: Casual Users")
+            # Assign based on rank (ensures all 3 tiers are used)
+            if i == 0:  # Highest scoring cluster
+                segment_names[segment] = "High Engagement"
+                print(f"  -> Assigned: High Engagement (Rank 1)")
+            elif i == 1:  # Middle scoring cluster
+                segment_names[segment] = "Medium Engagement"
+                print(f"  -> Assigned: Medium Engagement (Rank 2)")
+            else:  # Lowest scoring cluster
+                segment_names[segment] = "Low Engagement"
+                print(f"  -> Assigned: Low Engagement (Rank 3)")
+        
         print("Segment names: ", segment_names)
         return segment_names
     
@@ -185,9 +246,9 @@ class UserEngagementAnalyzer:
         return content_prefs, time_prefs, click_prefs
     
     def generate_personalized_recommendations(self):
-        """Generate personalized content recommendations for each user"""
+        """DAY 3: Generate personalized content recommendations for each user"""
         print("\n" + "=" * 60)
-        print("GENERATING PERSONALIZED RECOMMENDATIONS")
+        print("DAY 3: PERSONALIZED CONTENT RECOMMENDATIONS")
         print("=" * 60)
         
         recommendations = []
@@ -222,22 +283,18 @@ class UserEngagementAnalyzer:
             sorted_content = sorted(rec_scores.items(), key=lambda x: x[1], reverse=True)
             
             # Generate recommendations based on segment
-            if segment == "Highly Engaged":
+            if segment == "High Engagement":
                 primary_rec = sorted_content[0][0]
                 secondary_rec = sorted_content[1][0]
-                strategy = "Provide in-depth, detailed content"
-            elif segment == "Active Users":
+                strategy = "Provide premium, in-depth content with comprehensive details and advanced features"
+            elif segment == "Medium Engagement":
                 primary_rec = sorted_content[0][0]
                 secondary_rec = sorted_content[1][0]
-                strategy = "Offer varied content with clear value propositions"
-            elif segment == "Browsers":
+                strategy = "Offer balanced content with clear value propositions and moderate detail"
+            else:  # Low Engagement
                 primary_rec = sorted_content[0][0]
                 secondary_rec = sorted_content[1][0]
-                strategy = "Focus on visually engaging, easy-to-scan content"
-            else:  # Casual Users
-                primary_rec = sorted_content[0][0]
-                secondary_rec = sorted_content[1][0]
-                strategy = "Provide simple, bite-sized content with clear benefits"
+                strategy = "Provide simple, bite-sized content with clear benefits and easy next steps"
             
             recommendations.append({
                 'user_id': user_id,
@@ -253,63 +310,162 @@ class UserEngagementAnalyzer:
         return pd.DataFrame(recommendations)
     
     def create_visualizations(self):
-        """Create comprehensive visualizations"""
+        """Create comprehensive visualizations - Enhanced Day 1 Analysis"""
         print("\n" + "=" * 60)
-        print("CREATING VISUALIZATIONS")
+        print("CREATING ENHANCED VISUALIZATIONS")
         print("=" * 60)
         
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
-        fig.suptitle('User Engagement Analysis Dashboard', fontsize=16, fontweight='bold')
+        # Create multiple figure sets for comprehensive analysis
+        
+        # FIGURE 1: Main Dashboard (2x3 grid)
+        fig1, axes1 = plt.subplots(2, 3, figsize=(18, 12))
+        fig1.suptitle('User Engagement Analysis Dashboard', fontsize=16, fontweight='bold')
         
         # 1. Segment distribution
         segment_counts = self.user_features['segment_name'].value_counts()
-        axes[0, 0].pie(segment_counts.values, labels=segment_counts.index, autopct='%1.1f%%')
-        axes[0, 0].set_title('User Segment Distribution')
+        axes1[0, 0].pie(segment_counts.values, labels=segment_counts.index, autopct='%1.1f%%')
+        axes1[0, 0].set_title('User Segment Distribution')
         
         # 2. Content type popularity
         content_popularity = self.df['content_type'].value_counts()
-        axes[0, 1].bar(content_popularity.index, content_popularity.values)
-        axes[0, 1].set_title('Content Type Popularity')
-        axes[0, 1].tick_params(axis='x', rotation=45)
+        axes1[0, 1].bar(content_popularity.index, content_popularity.values, color='skyblue')
+        axes1[0, 1].set_title('Content Type Popularity')
+        axes1[0, 1].tick_params(axis='x', rotation=45)
+        axes1[0, 1].set_ylabel('Number of Interactions')
         
         # 3. Click rate by content type
         click_rates = self.df.groupby('content_type')['clicked'].mean().sort_values(ascending=False)
-        axes[0, 2].bar(click_rates.index, click_rates.values)
-        axes[0, 2].set_title('Click Rate by Content Type')
-        axes[0, 2].tick_params(axis='x', rotation=45)
-        axes[0, 2].set_ylabel('Click Rate')
+        axes1[0, 2].bar(click_rates.index, click_rates.values, color='lightcoral')
+        axes1[0, 2].set_title('Click Rate by Content Type')
+        axes1[0, 2].tick_params(axis='x', rotation=45)
+        axes1[0, 2].set_ylabel('Click Rate')
         
         # 4. Average time viewed by segment
         avg_times = self.user_features.groupby('segment_name')['avg_time_viewed'].mean()
-        axes[1, 0].bar(avg_times.index, avg_times.values)
-        axes[1, 0].set_title('Average Time Viewed by Segment')
-        axes[1, 0].tick_params(axis='x', rotation=45)
-        axes[1, 0].set_ylabel('Seconds')
+        axes1[1, 0].bar(avg_times.index, avg_times.values, color='lightgreen')
+        axes1[1, 0].set_title('Average Time Viewed by Segment')
+        axes1[1, 0].tick_params(axis='x', rotation=45)
+        axes1[1, 0].set_ylabel('Seconds')
         
         # 5. Interactions vs Click Rate by segment
         for segment in self.user_features['segment_name'].unique():
             segment_data = self.user_features[self.user_features['segment_name'] == segment]
-            axes[1, 1].scatter(segment_data['total_interactions'], segment_data['click_rate'], 
-                             label=segment, alpha=0.7)
-        axes[1, 1].set_xlabel('Total Interactions')
-        axes[1, 1].set_ylabel('Click Rate')
-        axes[1, 1].set_title('Interactions vs Click Rate by Segment')
-        axes[1, 1].legend()
+            axes1[1, 1].scatter(segment_data['total_interactions'], segment_data['click_rate'], 
+                             label=segment, alpha=0.7, s=50)
+        axes1[1, 1].set_xlabel('Total Interactions')
+        axes1[1, 1].set_ylabel('Click Rate')
+        axes1[1, 1].set_title('Interactions vs Click Rate by Segment')
+        axes1[1, 1].legend()
         
         # 6. Content preference heatmap
         content_prefs = self.user_features.groupby('segment_name')[[col for col in self.user_features.columns if col.startswith('pref_')]].mean()
         content_prefs.columns = [col.replace('pref_', '') for col in content_prefs.columns]
         
-        im = axes[1, 2].imshow(content_prefs.values, cmap='YlOrRd', aspect='auto')
-        axes[1, 2].set_xticks(range(len(content_prefs.columns)))
-        axes[1, 2].set_xticklabels(content_prefs.columns, rotation=45)
-        axes[1, 2].set_yticks(range(len(content_prefs.index)))
-        axes[1, 2].set_yticklabels(content_prefs.index)
-        axes[1, 2].set_title('Content Preferences by Segment')
+        im = axes1[1, 2].imshow(content_prefs.values, cmap='YlOrRd', aspect='auto')
+        axes1[1, 2].set_xticks(range(len(content_prefs.columns)))
+        axes1[1, 2].set_xticklabels(content_prefs.columns, rotation=45)
+        axes1[1, 2].set_yticks(range(len(content_prefs.index)))
+        axes1[1, 2].set_yticklabels(content_prefs.index)
+        axes1[1, 2].set_title('Content Preferences by Segment')
+        plt.colorbar(im, ax=axes1[1, 2], fraction=0.046, pad=0.04)
         
-        # Add colorbar
-        plt.colorbar(im, ax=axes[1, 2], fraction=0.046, pad=0.04)
+        plt.tight_layout()
+        plt.show()
         
+        # FIGURE 2: Detailed Histograms and Distributions (2x2 grid)
+        fig2, axes2 = plt.subplots(2, 2, figsize=(15, 10))
+        fig2.suptitle('Detailed Data Distributions', fontsize=16, fontweight='bold')
+        
+        # 1. Time viewed histogram
+        axes2[0, 0].hist(self.df['time_viewed_in_sec'], bins=30, alpha=0.7, color='blue', edgecolor='black')
+        axes2[0, 0].set_title('Distribution of Time Viewed')
+        axes2[0, 0].set_xlabel('Time Viewed (seconds)')
+        axes2[0, 0].set_ylabel('Frequency')
+        axes2[0, 0].axvline(self.df['time_viewed_in_sec'].mean(), color='red', linestyle='--', 
+                           label=f'Mean: {self.df["time_viewed_in_sec"].mean():.1f}s')
+        axes2[0, 0].legend()
+        
+        # 2. User interactions histogram
+        user_interactions = self.df.groupby('user_id').size()
+        axes2[0, 1].hist(user_interactions, bins=20, alpha=0.7, color='green', edgecolor='black')
+        axes2[0, 1].set_title('Distribution of User Interactions')
+        axes2[0, 1].set_xlabel('Number of Interactions per User')
+        axes2[0, 1].set_ylabel('Number of Users')
+        axes2[0, 1].axvline(user_interactions.mean(), color='red', linestyle='--', 
+                           label=f'Mean: {user_interactions.mean():.1f}')
+        axes2[0, 1].legend()
+        
+        # 3. Click rate by engagement segment
+        click_rates_by_segment = self.user_features.groupby('segment_name')['click_rate'].mean()
+        axes2[1, 0].bar(click_rates_by_segment.index, click_rates_by_segment.values, 
+                       color=['red', 'orange', 'green'])
+        axes2[1, 0].set_title('Click Rate by Engagement Segment')
+        axes2[1, 0].set_ylabel('Average Click Rate')
+        axes2[1, 0].tick_params(axis='x', rotation=45)
+        
+        # 4. Time spent by content type (box plot)
+        content_types = self.df['content_type'].unique()
+        time_data = [self.df[self.df['content_type'] == ct]['time_viewed_in_sec'].values for ct in content_types]
+        axes2[1, 1].boxplot(time_data, labels=content_types)
+        axes2[1, 1].set_title('Time Viewed Distribution by Content Type')
+        axes2[1, 1].set_ylabel('Time Viewed (seconds)')
+        axes2[1, 1].tick_params(axis='x', rotation=45)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # FIGURE 3: Engagement Analysis (2x2 grid)
+        fig3, axes3 = plt.subplots(2, 2, figsize=(15, 10))
+        fig3.suptitle('User Engagement Deep Dive', fontsize=16, fontweight='bold')
+        
+        # 1. Engagement score distribution
+        engagement_scores = []
+        for _, user_data in self.user_features.iterrows():
+            score = (user_data['click_rate'] * 0.5 + 
+                    min(user_data['avg_time_viewed'] / 60, 1) * 0.25 + 
+                    min(user_data['total_interactions'] / 12, 1) * 0.25)
+            engagement_scores.append(score)
+        
+        axes3[0, 0].hist(engagement_scores, bins=20, alpha=0.7, color='purple', edgecolor='black')
+        axes3[0, 0].set_title('Distribution of Engagement Scores')
+        axes3[0, 0].set_xlabel('Engagement Score')
+        axes3[0, 0].set_ylabel('Number of Users')
+        
+        # 2. Content type interactions over time (if we have dates)
+        daily_interactions = self.df.groupby(['date', 'content_type']).size().unstack(fill_value=0)
+        daily_interactions.plot(kind='line', ax=axes3[0, 1], marker='o', alpha=0.7)
+        axes3[0, 1].set_title('Content Interactions Over Time')
+        axes3[0, 1].set_xlabel('Date')
+        axes3[0, 1].set_ylabel('Number of Interactions')
+        axes3[0, 1].legend(title='Content Type', bbox_to_anchor=(1.05, 1), loc='upper left')
+        axes3[0, 1].tick_params(axis='x', rotation=45)
+        
+        # 3. User activity heatmap by day
+        df_copy = self.df.copy()
+        df_copy['date'] = pd.to_datetime(df_copy['date'])
+        df_copy['day'] = df_copy['date'].dt.day_name()
+        daily_activity = df_copy.groupby('day').size().reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+        axes3[1, 0].bar(daily_activity.index, daily_activity.values, color='orange')
+        axes3[1, 0].set_title('Activity by Day of Week')
+        axes3[1, 0].set_ylabel('Number of Interactions')
+        axes3[1, 0].tick_params(axis='x', rotation=45)
+        
+        # 4. Correlation heatmap of user metrics
+        user_metrics = self.user_features[['avg_time_viewed', 'click_rate', 'total_interactions', 'unique_content_viewed']].corr()
+        im = axes3[1, 1].imshow(user_metrics.values, cmap='coolwarm', aspect='auto', vmin=-1, vmax=1)
+        axes3[1, 1].set_xticks(range(len(user_metrics.columns)))
+        axes3[1, 1].set_xticklabels(user_metrics.columns, rotation=45)
+        axes3[1, 1].set_yticks(range(len(user_metrics.index)))
+        axes3[1, 1].set_yticklabels(user_metrics.index)
+        axes3[1, 1].set_title('User Metrics Correlation')
+        
+        # Add correlation values to heatmap
+        for i in range(len(user_metrics.index)):
+            for j in range(len(user_metrics.columns)):
+                axes3[1, 1].text(j, i, f'{user_metrics.iloc[i, j]:.2f}', 
+                               ha='center', va='center', color='white' if abs(user_metrics.iloc[i, j]) > 0.5 else 'black')
+        
+        plt.colorbar(im, ax=axes3[1, 1], fraction=0.046, pad=0.04)
         plt.tight_layout()
         plt.show()
     
@@ -356,26 +512,27 @@ class UserEngagementAnalyzer:
                 print(f"  - {content.replace('pref_', '')}: {pref:.1%}")
             
             # Business recommendations
-            if segment == "Highly Engaged":
+            if segment == "High Engagement":
                 print("Business Recommendations:")
-                print("  - Provide premium, in-depth content")
-                print("  - Offer exclusive features or early access")
+                print("  - Provide premium, in-depth content and whitepapers")
+                print("  - Offer exclusive features, early access, and VIP treatment")
                 print("  - Focus on retention and loyalty programs")
-            elif segment == "Active Users":
+                print("  - Create detailed guides, tutorials, and educational content")
+                print("  - Implement advanced personalization features")
+            elif segment == "Medium Engagement":
                 print("Business Recommendations:")
-                print("  - Diversify content offerings")
-                print("  - Implement personalized notifications")
-                print("  - A/B test different content formats")
-            elif segment == "Browsers":
+                print("  - Offer balanced content with clear value propositions")
+                print("  - Implement targeted notifications and reminders")
+                print("  - A/B test different content formats and lengths")
+                print("  - Provide moderate detail with easy-to-scan formatting")
+                print("  - Focus on conversion optimization")
+            else:  # Low Engagement
                 print("Business Recommendations:")
-                print("  - Optimize for mobile and quick scanning")
-                print("  - Use more visual content and infographics")
-                print("  - Implement progressive disclosure")
-            else:  # Casual Users
-                print("Business Recommendations:")
-                print("  - Simplify onboarding process")
-                print("  - Focus on clear value propositions")
-                print("  - Use email/push notifications strategically")
+                print("  - Simplify onboarding and user experience")
+                print("  - Focus on clear, immediate value propositions")
+                print("  - Use prominent CTAs and minimal friction")
+                print("  - Create bite-sized, easy-to-consume content")
+                print("  - Implement re-engagement campaigns and incentives")
     
     def run_complete_analysis(self):
         """Run the complete analysis pipeline"""
@@ -423,8 +580,11 @@ if __name__ == "__main__":
     print("ANALYSIS COMPLETE!")
     print("=" * 60)
     print("Key outputs:")
-    print("1. User segmentation with 4 distinct segments")
-    print("2. Content preferences analysis by segment")
+    print("1. User segmentation with 3 engagement tiers:")
+    print("   - High Engagement: Users with strong click rates, time spent, and interactions")
+    print("   - Medium Engagement: Users with moderate engagement across metrics")
+    print("   - Low Engagement: Users with minimal engagement requiring activation")
+    print("2. Content preferences analysis by engagement level")
     print("3. Personalized recommendations for each user")
     print("4. Visual dashboard of engagement patterns")
-    print("5. Business recommendations for each segment")
+    print("5. Business recommendations for each engagement tier")
