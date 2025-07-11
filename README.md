@@ -1,11 +1,17 @@
 User Types: 
+
 High Engagement: 36
+
 Medium Engagement: 34
+
 Low Engagement: 30
 
 Content preference
+
 High Engagement users: credit_cards, insights, loans, protect, drivescore, improve 
+
 Medium Engagement users: insights, loans, drivescore, protect, credit_cards
+
 Low Engagement users: improve,insights, drivescore, credit_cards, protect, loans 
 
 Most common content types based off interactions:
