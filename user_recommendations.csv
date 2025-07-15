@@ -1,54 +1,54 @@
 user_id,segment,primary_recommendation,secondary_recommendation,strategy,user_click_rate,user_avg_time,total_interactions
 user_000,Low Engagement,improve,protect,"Provide simple, bite-sized content with clear benefits and easy next steps",0.12,14.52,8
-user_001,High Engagement,protect,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.83,29.73,6
+user_001,Low Engagement,protect,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.83,29.73,6
 user_002,Medium Engagement,drivescore,protect,Offer balanced content with clear value propositions and moderate detail,0.5,50.23,6
-user_003,High Engagement,credit_cards,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.22,38.1,9
+user_003,Medium Engagement,credit_cards,loans,Offer balanced content with clear value propositions and moderate detail,0.22,38.1,9
 user_004,Low Engagement,insights,drivescore,"Provide simple, bite-sized content with clear benefits and easy next steps",0.5,6.25,2
 user_005,Low Engagement,improve,loans,"Provide simple, bite-sized content with clear benefits and easy next steps",0.1,10.01,10
-user_006,High Engagement,drivescore,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.27,28.06,11
+user_006,Low Engagement,drivescore,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.27,28.06,11
 user_007,Low Engagement,drivescore,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.2,13.1,5
 user_008,Low Engagement,loans,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.38,17.66,8
 user_009,High Engagement,credit_cards,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.6,38.76,10
 user_010,Medium Engagement,loans,improve,Offer balanced content with clear value propositions and moderate detail,0.22,27.24,9
 user_011,High Engagement,protect,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.23,37.12,13
 user_012,High Engagement,insights,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.5,41.81,12
-user_013,High Engagement,protect,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.43,45.13,7
+user_013,Medium Engagement,protect,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.43,45.13,7
 user_014,High Engagement,improve,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.44,41.51,16
 user_015,Low Engagement,improve,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.22,24.02,9
-user_016,High Engagement,drivescore,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.29,15.03,14
+user_016,Low Engagement,drivescore,loans,"Provide simple, bite-sized content with clear benefits and easy next steps",0.29,15.03,14
 user_017,High Engagement,credit_cards,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.38,24.36,16
-user_018,Medium Engagement,drivescore,improve,Offer balanced content with clear value propositions and moderate detail,0.36,26.28,11
-user_019,Low Engagement,improve,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.22,32.29,9
+user_018,High Engagement,drivescore,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.36,26.28,11
+user_019,Medium Engagement,improve,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.22,32.29,9
 user_020,Low Engagement,credit_cards,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.38,19.89,8
 user_021,High Engagement,drivescore,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.56,44.67,9
 user_022,Medium Engagement,improve,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.12,38.51,8
 user_023,Low Engagement,drivescore,loans,"Provide simple, bite-sized content with clear benefits and easy next steps",0.2,19.35,10
-user_024,High Engagement,drivescore,insights,"Provide premium, in-depth content with comprehensive details and advanced features",0.4,21.74,10
+user_024,Low Engagement,drivescore,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.4,21.74,10
 user_025,Low Engagement,improve,protect,"Provide simple, bite-sized content with clear benefits and easy next steps",0.5,26.33,8
 user_026,Medium Engagement,improve,drivescore,Offer balanced content with clear value propositions and moderate detail,0.2,35.32,5
-user_027,High Engagement,insights,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.56,25.5,9
+user_027,Low Engagement,insights,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.56,25.5,9
 user_028,High Engagement,credit_cards,insights,"Provide premium, in-depth content with comprehensive details and advanced features",0.33,40.48,12
-user_029,High Engagement,insights,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.38,41.48,8
+user_029,Medium Engagement,insights,protect,Offer balanced content with clear value propositions and moderate detail,0.38,41.48,8
 user_030,Low Engagement,protect,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.38,14.32,8
 user_031,High Engagement,loans,drivescore,"Provide premium, in-depth content with comprehensive details and advanced features",0.33,28.68,12
 user_032,Low Engagement,credit_cards,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.33,13.05,6
 user_033,High Engagement,credit_cards,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.17,26.92,18
 user_034,Medium Engagement,protect,loans,Offer balanced content with clear value propositions and moderate detail,0.29,21.19,14
 user_035,High Engagement,drivescore,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.36,23.01,14
-user_036,Low Engagement,protect,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.0,34.15,6
+user_036,Medium Engagement,protect,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.0,34.15,6
 user_037,Medium Engagement,drivescore,insights,Offer balanced content with clear value propositions and moderate detail,0.25,38.18,8
-user_038,Medium Engagement,insights,improve,Offer balanced content with clear value propositions and moderate detail,0.22,24.83,9
+user_038,Low Engagement,insights,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.22,24.83,9
 user_039,Medium Engagement,loans,improve,Offer balanced content with clear value propositions and moderate detail,0.2,43.78,5
 user_040,High Engagement,loans,insights,"Provide premium, in-depth content with comprehensive details and advanced features",0.3,39.0,10
 user_041,Low Engagement,loans,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.4,17.39,10
-user_042,High Engagement,improve,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.27,25.65,11
+user_042,Low Engagement,improve,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.27,25.65,11
 user_043,Low Engagement,drivescore,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.14,16.44,7
 user_044,High Engagement,credit_cards,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.23,42.29,13
 user_045,High Engagement,credit_cards,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.67,30.93,6
 user_046,Low Engagement,protect,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.27,16.75,11
-user_047,Medium Engagement,drivescore,improve,Offer balanced content with clear value propositions and moderate detail,0.13,30.22,15
+user_047,High Engagement,drivescore,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.13,30.22,15
 user_048,High Engagement,insights,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.44,21.01,16
-user_049,Low Engagement,protect,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.25,32.66,8
+user_049,Medium Engagement,protect,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.25,32.66,8
 user_050,Medium Engagement,loans,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.11,31.63,9
 user_051,Low Engagement,improve,protect,"Provide simple, bite-sized content with clear benefits and easy next steps",0.25,10.01,8
 user_052,High Engagement,insights,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.55,31.65,11
@@ -67,17 +67,17 @@ user_064,Medium Engagement,loans,improve,Offer balanced content with clear value
 user_065,Low Engagement,insights,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.3,20.67,10
 user_066,Low Engagement,improve,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.6,20.64,5
 user_067,Medium Engagement,protect,loans,Offer balanced content with clear value propositions and moderate detail,0.23,29.03,13
-user_068,Low Engagement,drivescore,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.0,34.24,7
+user_068,Medium Engagement,drivescore,credit_cards,Offer balanced content with clear value propositions and moderate detail,0.0,34.24,7
 user_069,High Engagement,credit_cards,drivescore,"Provide premium, in-depth content with comprehensive details and advanced features",0.45,26.08,11
 user_070,Medium Engagement,improve,drivescore,Offer balanced content with clear value propositions and moderate detail,0.38,32.44,8
-user_071,High Engagement,credit_cards,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.25,27.17,12
-user_072,Medium Engagement,protect,improve,Offer balanced content with clear value propositions and moderate detail,0.08,21.27,12
+user_071,Medium Engagement,credit_cards,protect,Offer balanced content with clear value propositions and moderate detail,0.25,27.17,12
+user_072,Low Engagement,protect,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.08,21.27,12
 user_073,High Engagement,credit_cards,drivescore,"Provide premium, in-depth content with comprehensive details and advanced features",0.38,37.78,16
-user_074,Medium Engagement,insights,protect,Offer balanced content with clear value propositions and moderate detail,0.12,26.29,17
+user_074,High Engagement,insights,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.12,26.29,17
 user_075,Low Engagement,improve,insights,"Provide simple, bite-sized content with clear benefits and easy next steps",0.2,20.3,10
 user_076,Medium Engagement,loans,drivescore,Offer balanced content with clear value propositions and moderate detail,0.33,18.91,9
 user_077,High Engagement,credit_cards,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.56,22.21,9
-user_078,High Engagement,drivescore,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.11,39.76,9
+user_078,Medium Engagement,drivescore,protect,Offer balanced content with clear value propositions and moderate detail,0.11,39.76,9
 user_079,Low Engagement,credit_cards,drivescore,"Provide simple, bite-sized content with clear benefits and easy next steps",0.33,30.13,3
 user_080,Low Engagement,protect,improve,"Provide simple, bite-sized content with clear benefits and easy next steps",0.12,24.02,8
 user_081,High Engagement,credit_cards,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.33,22.71,18
@@ -85,16 +85,16 @@ user_082,Low Engagement,protect,insights,"Provide simple, bite-sized content wit
 user_083,Low Engagement,insights,protect,"Provide simple, bite-sized content with clear benefits and easy next steps",0.38,26.62,8
 user_084,Low Engagement,protect,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.33,23.42,9
 user_085,Medium Engagement,drivescore,protect,Offer balanced content with clear value propositions and moderate detail,0.09,28.06,11
-user_086,Low Engagement,credit_cards,drivescore,"Provide simple, bite-sized content with clear benefits and easy next steps",0.0,33.16,5
+user_086,Medium Engagement,credit_cards,drivescore,Offer balanced content with clear value propositions and moderate detail,0.0,33.16,5
 user_087,High Engagement,protect,insights,"Provide premium, in-depth content with comprehensive details and advanced features",0.2,35.76,15
 user_088,High Engagement,drivescore,loans,"Provide premium, in-depth content with comprehensive details and advanced features",0.62,21.42,13
 user_089,Medium Engagement,protect,loans,Offer balanced content with clear value propositions and moderate detail,0.09,33.78,11
 user_090,Medium Engagement,drivescore,protect,Offer balanced content with clear value propositions and moderate detail,0.62,45.26,8
 user_091,High Engagement,insights,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.43,22.76,14
 user_092,High Engagement,loans,credit_cards,"Provide premium, in-depth content with comprehensive details and advanced features",0.23,30.95,13
-user_093,Low Engagement,insights,protect,"Provide simple, bite-sized content with clear benefits and easy next steps",0.14,30.39,7
+user_093,Medium Engagement,insights,protect,Offer balanced content with clear value propositions and moderate detail,0.14,30.39,7
 user_094,Low Engagement,insights,credit_cards,"Provide simple, bite-sized content with clear benefits and easy next steps",0.44,28.03,9
-user_095,High Engagement,improve,drivescore,"Provide premium, in-depth content with comprehensive details and advanced features",0.25,49.3,8
+user_095,Medium Engagement,improve,drivescore,Offer balanced content with clear value propositions and moderate detail,0.25,49.3,8
 user_096,Medium Engagement,insights,drivescore,Offer balanced content with clear value propositions and moderate detail,0.2,37.76,5
 user_097,High Engagement,improve,protect,"Provide premium, in-depth content with comprehensive details and advanced features",0.29,26.92,14
 user_098,High Engagement,loans,improve,"Provide premium, in-depth content with comprehensive details and advanced features",0.33,36.61,12
