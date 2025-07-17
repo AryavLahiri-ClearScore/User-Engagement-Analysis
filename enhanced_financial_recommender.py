@@ -49,7 +49,7 @@ class FinanciallyAwareRecommender:
             # Asset Component (having mortgage/car indicates stability)
             asset_component = (user['has_mortgage'] * 0.6 + user['has_car'] * 0.4)
             
-            # Calculate composite financial health score (0-1) (Weightings can be changed, currently haviest weighting given to credit score)
+            # Calculate composite financial health score (0-1) (Weightings can be changed, currently haviest weighting given to credit score maybe ccj should be more)
             financial_health = (
                 credit_component * 0.30 +
                 dti_component * 0.25 +
@@ -248,7 +248,9 @@ class FinanciallyAwareRecommender:
         axes1[1, 2].tick_params(axis='x', rotation=45)
         
         plt.tight_layout()
+        plt.savefig('financial_health_dashboard.png', dpi=300, bbox_inches='tight')
         plt.show()
+        print("✅ Saved: financial_health_dashboard.png")
         
         # FIGURE 2: Financial Metrics Deep Dive (2x2 grid)
         fig2, axes2 = plt.subplots(2, 2, figsize=(15, 10))
@@ -307,7 +309,9 @@ class FinanciallyAwareRecommender:
         
         plt.colorbar(im, ax=axes2[1, 1], fraction=0.046, pad=0.04)
         plt.tight_layout()
+        plt.savefig('financial_metrics_analysis.png', dpi=300, bbox_inches='tight')
         plt.show()
+        print("✅ Saved: financial_metrics_analysis.png")
         
         # FIGURE 3: Segment Analysis & Recommendations (2x2 grid)
         fig3, axes3 = plt.subplots(2, 2, figsize=(15, 10))
@@ -366,7 +370,9 @@ class FinanciallyAwareRecommender:
         axes3[1, 1].legend()
         
         plt.tight_layout()
+        plt.savefig('enhanced_engagement_analysis.png', dpi=300, bbox_inches='tight')
         plt.show()
+        print("✅ Saved: enhanced_engagement_analysis.png")
     
     def visualize_financial_clustering(self):
         """Visualize the enhanced clustering with financial context"""
@@ -433,7 +439,9 @@ class FinanciallyAwareRecommender:
         plt.colorbar(scatter4, ax=ax4, label='DTI Ratio')
         
         plt.tight_layout()
+        plt.savefig('financial_clustering_analysis.png', dpi=300, bbox_inches='tight')
         plt.show()
+        print("✅ Saved: financial_clustering_analysis.png")
         
         # Print PCA explanation
         print(f"PCA Explained Variance:")
