@@ -1,9 +1,16 @@
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 import warnings
 warnings.filterwarnings('ignore')
+
+# Set style for better visualizations
+plt.style.use('seaborn-v0_8')
+sns.set_palette("husl")
 
 class FinanciallyAwareRecommender:
     def __init__(self, csv_file):
@@ -171,6 +178,270 @@ class FinanciallyAwareRecommender:
         print(self.user_features['enhanced_segment'].value_counts())
         
         return self.user_features
+    
+    def create_financial_visualizations(self):
+        """Create comprehensive financial and engagement visualizations"""
+        print("\n" + "=" * 60)
+        print("CREATING FINANCIAL ANALYSIS VISUALIZATIONS")
+        print("=" * 60)
+        
+        # FIGURE 1: Financial Health Dashboard (2x3 grid)
+        fig1, axes1 = plt.subplots(2, 3, figsize=(20, 12))
+        fig1.suptitle('Financial Health & Engagement Dashboard', fontsize=16, fontweight='bold')
+        
+        # 1. Enhanced segment distribution
+        segment_counts = self.user_features['enhanced_segment'].value_counts()
+        colors = plt.cm.Set3(np.linspace(0, 1, len(segment_counts)))
+        axes1[0, 0].pie(segment_counts.values, labels=segment_counts.index, autopct='%1.1f%%', 
+                       colors=colors, startangle=90)
+        axes1[0, 0].set_title('Enhanced Segment Distribution')
+        
+        # 2. Financial category distribution
+        financial_counts = self.user_features['financial_category'].value_counts()
+        colors_fin = ['#ff9999', '#66b3ff', '#99ff99']
+        axes1[0, 1].bar(financial_counts.index, financial_counts.values, color=colors_fin)
+        axes1[0, 1].set_title('Financial Health Categories')
+        axes1[0, 1].set_ylabel('Number of Users')
+        axes1[0, 1].tick_params(axis='x', rotation=45)
+        
+        # 3. Credit score distribution
+        axes1[0, 2].hist(self.user_features['credit_score'], bins=20, alpha=0.7, 
+                        color='skyblue', edgecolor='black')
+        axes1[0, 2].axvline(self.user_features['credit_score'].mean(), color='red', 
+                           linestyle='--', label=f'Mean: {self.user_features["credit_score"].mean():.0f}')
+        axes1[0, 2].set_title('Credit Score Distribution')
+        axes1[0, 2].set_xlabel('Credit Score')
+        axes1[0, 2].set_ylabel('Number of Users')
+        axes1[0, 2].legend()
+        
+        # 4. DTI Ratio vs Financial Health Score
+        scatter = axes1[1, 0].scatter(self.user_features['dti_ratio'], 
+                                     self.user_features['financial_health_score'],
+                                     c=self.user_features['credit_score'], 
+                                     cmap='viridis', alpha=0.7, s=50)
+        axes1[1, 0].set_xlabel('Debt-to-Income Ratio')
+        axes1[1, 0].set_ylabel('Financial Health Score')
+        axes1[1, 0].set_title('DTI vs Financial Health (colored by Credit Score)')
+        plt.colorbar(scatter, ax=axes1[1, 0], label='Credit Score')
+        
+        # 5. Engagement vs Financial Health by segment
+        for segment in self.user_features['enhanced_segment'].unique():
+            segment_data = self.user_features[self.user_features['enhanced_segment'] == segment]
+            axes1[1, 1].scatter(segment_data['engagement_score'], 
+                               segment_data['financial_health_score'],
+                               label=segment, alpha=0.7, s=50)
+        axes1[1, 1].set_xlabel('Engagement Score')
+        axes1[1, 1].set_ylabel('Financial Health Score')
+        axes1[1, 1].set_title('Engagement vs Financial Health by Segment')
+        axes1[1, 1].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        # 6. Income distribution by financial category
+        financial_categories = self.user_features['financial_category'].unique()
+        income_data = [self.user_features[self.user_features['financial_category'] == cat]['income'].values 
+                      for cat in financial_categories]
+        box_plot = axes1[1, 2].boxplot(income_data, labels=financial_categories, patch_artist=True)
+        colors_box = ['#ff9999', '#66b3ff', '#99ff99']
+        for patch, color in zip(box_plot['boxes'], colors_box):
+            patch.set_facecolor(color)
+        axes1[1, 2].set_title('Income Distribution by Financial Category')
+        axes1[1, 2].set_ylabel('Income (£)')
+        axes1[1, 2].tick_params(axis='x', rotation=45)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # FIGURE 2: Financial Metrics Deep Dive (2x2 grid)
+        fig2, axes2 = plt.subplots(2, 2, figsize=(15, 10))
+        fig2.suptitle('Financial Metrics Deep Dive', fontsize=16, fontweight='bold')
+        
+        # 1. Financial health score distribution
+        axes2[0, 0].hist(self.user_features['financial_health_score'], bins=20, 
+                        alpha=0.7, color='green', edgecolor='black')
+        axes2[0, 0].axvline(self.user_features['financial_health_score'].mean(), 
+                           color='red', linestyle='--', 
+                           label=f'Mean: {self.user_features["financial_health_score"].mean():.2f}')
+        axes2[0, 0].set_title('Financial Health Score Distribution')
+        axes2[0, 0].set_xlabel('Financial Health Score')
+        axes2[0, 0].set_ylabel('Number of Users')
+        axes2[0, 0].legend()
+        
+        # 2. Missed payments analysis
+        missed_payments_dist = self.user_features['missed_payments'].value_counts().sort_index()
+        axes2[0, 1].bar(missed_payments_dist.index, missed_payments_dist.values, 
+                       color='coral', alpha=0.7)
+        axes2[0, 1].set_title('Missed Payments Distribution')
+        axes2[0, 1].set_xlabel('Number of Missed Payments')
+        axes2[0, 1].set_ylabel('Number of Users')
+        
+        # 3. Asset ownership analysis
+        asset_data = pd.DataFrame({
+            'Has Mortgage': self.user_features['has_mortgage'].sum(),
+            'Has Car': self.user_features['has_car'].sum(),
+            'Has CCJ': self.user_features['has_ccj'].sum()
+        }, index=[0])
+        asset_data.T.plot(kind='bar', ax=axes2[1, 0], color=['green', 'blue', 'red'], 
+                         alpha=0.7, legend=False)
+        axes2[1, 0].set_title('Asset Ownership & Financial Issues')
+        axes2[1, 0].set_ylabel('Number of Users')
+        axes2[1, 0].tick_params(axis='x', rotation=45)
+        
+        # 4. Financial metrics correlation heatmap
+        financial_metrics = ['credit_score', 'dti_ratio', 'income', 'total_debt', 
+                           'missed_payments', 'financial_health_score']
+        correlation_matrix = self.user_features[financial_metrics].corr()
+        
+        im = axes2[1, 1].imshow(correlation_matrix.values, cmap='RdBu_r', 
+                               aspect='auto', vmin=-1, vmax=1)
+        axes2[1, 1].set_xticks(range(len(correlation_matrix.columns)))
+        axes2[1, 1].set_xticklabels(correlation_matrix.columns, rotation=45)
+        axes2[1, 1].set_yticks(range(len(correlation_matrix.index)))
+        axes2[1, 1].set_yticklabels(correlation_matrix.index)
+        axes2[1, 1].set_title('Financial Metrics Correlation')
+        
+        # Add correlation values to heatmap
+        for i in range(len(correlation_matrix.index)):
+            for j in range(len(correlation_matrix.columns)):
+                text_color = 'white' if abs(correlation_matrix.iloc[i, j]) > 0.5 else 'black'
+                axes2[1, 1].text(j, i, f'{correlation_matrix.iloc[i, j]:.2f}', 
+                                ha='center', va='center', color=text_color)
+        
+        plt.colorbar(im, ax=axes2[1, 1], fraction=0.046, pad=0.04)
+        plt.tight_layout()
+        plt.show()
+        
+        # FIGURE 3: Segment Analysis & Recommendations (2x2 grid)
+        fig3, axes3 = plt.subplots(2, 2, figsize=(15, 10))
+        fig3.suptitle('Enhanced Segment Analysis & Content Recommendations', fontsize=16, fontweight='bold')
+        
+        # 1. Average financial health by segment
+        segment_financial_health = self.user_features.groupby('enhanced_segment')['financial_health_score'].mean().sort_values(ascending=False)
+        axes3[0, 0].bar(range(len(segment_financial_health)), segment_financial_health.values, 
+                       color='lightgreen', alpha=0.7)
+        axes3[0, 0].set_xticks(range(len(segment_financial_health)))
+        axes3[0, 0].set_xticklabels(segment_financial_health.index, rotation=45, ha='right')
+        axes3[0, 0].set_title('Average Financial Health by Segment')
+        axes3[0, 0].set_ylabel('Financial Health Score')
+        
+        # 2. Credit score by segment (box plot)
+        segments = self.user_features['enhanced_segment'].unique()
+        credit_data = [self.user_features[self.user_features['enhanced_segment'] == seg]['credit_score'].values 
+                      for seg in segments]
+        box_plot2 = axes3[0, 1].boxplot(credit_data, labels=segments, patch_artist=True)
+        colors_segments = plt.cm.Set3(np.linspace(0, 1, len(segments)))
+        for patch, color in zip(box_plot2['boxes'], colors_segments):
+            patch.set_facecolor(color)
+        axes3[0, 1].set_title('Credit Score Distribution by Segment')
+        axes3[0, 1].set_ylabel('Credit Score')
+        axes3[0, 1].tick_params(axis='x', rotation=45)
+        
+        # 3. Content preferences heatmap by enhanced segment
+        content_prefs = self.user_features.groupby('enhanced_segment')[[col for col in self.user_features.columns if col.startswith('pref_')]].mean()
+        content_prefs.columns = [col.replace('pref_', '') for col in content_prefs.columns]
+        
+        im2 = axes3[1, 0].imshow(content_prefs.values, cmap='YlOrRd', aspect='auto')
+        axes3[1, 0].set_xticks(range(len(content_prefs.columns)))
+        axes3[1, 0].set_xticklabels(content_prefs.columns, rotation=45)
+        axes3[1, 0].set_yticks(range(len(content_prefs.index)))
+        axes3[1, 0].set_yticklabels(content_prefs.index, fontsize=8)
+        axes3[1, 0].set_title('Content Preferences by Enhanced Segment')
+        plt.colorbar(im2, ax=axes3[1, 0], fraction=0.046, pad=0.04)
+        
+        # 4. Financial vs Engagement score comparison
+        financial_categories = ['At_Risk', 'Stable', 'Excellent']
+        fin_eng_comparison = self.user_features.groupby('financial_category')[['financial_health_score', 'engagement_score']].mean()
+        
+        x = np.arange(len(financial_categories))
+        width = 0.35
+        
+        bars1 = axes3[1, 1].bar(x - width/2, fin_eng_comparison['financial_health_score'], 
+                               width, label='Financial Health', color='lightblue', alpha=0.7)
+        bars2 = axes3[1, 1].bar(x + width/2, fin_eng_comparison['engagement_score'], 
+                               width, label='Engagement Score', color='lightcoral', alpha=0.7)
+        
+        axes3[1, 1].set_xlabel('Financial Category')
+        axes3[1, 1].set_ylabel('Score')
+        axes3[1, 1].set_title('Financial Health vs Engagement by Category')
+        axes3[1, 1].set_xticks(x)
+        axes3[1, 1].set_xticklabels(financial_categories)
+        axes3[1, 1].legend()
+        
+        plt.tight_layout()
+        plt.show()
+    
+    def visualize_financial_clustering(self):
+        """Visualize the enhanced clustering with financial context"""
+        print("\n" + "=" * 60)
+        print("FINANCIAL CLUSTERING VISUALIZATION")
+        print("=" * 60)
+        
+        # Prepare features for clustering (same as used in segmentation)
+        engagement_features = ['avg_time_viewed', 'total_interactions', 'click_rate', 'unique_content_viewed']
+        financial_features = ['financial_health_score', 'credit_score', 'dti_ratio', 'income']
+        content_features = [col for col in self.user_features.columns if col.startswith('pref_')]
+        
+        clustering_features = engagement_features + financial_features + content_features
+        features_for_clustering = self.user_features[clustering_features].fillna(0)
+        features_scaled = self.scaler.fit_transform(features_for_clustering)
+        
+        # Apply PCA to reduce to 2D
+        pca = PCA(n_components=2, random_state=42)
+        features_2d = pca.fit_transform(features_scaled)
+        
+        # Create the visualization
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('Enhanced Financial-Engagement Clustering', fontsize=16, fontweight='bold')
+        
+        # 1. Clusters by enhanced segment
+        segment_colors = plt.cm.Set3(np.linspace(0, 1, len(self.user_features['enhanced_segment'].unique())))
+        segments = self.user_features['enhanced_segment'].unique()
+        
+        for i, segment in enumerate(segments):
+            mask = self.user_features['enhanced_segment'] == segment
+            if mask.any():
+                ax1.scatter(features_2d[mask, 0], features_2d[mask, 1], 
+                           c=[segment_colors[i]], label=segment, alpha=0.7, s=50)
+        ax1.set_title('Clusters by Enhanced Segment')
+        ax1.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax1.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8)
+        
+        # 2. Colored by financial health score
+        scatter2 = ax2.scatter(features_2d[:, 0], features_2d[:, 1], 
+                              c=self.user_features['financial_health_score'], 
+                              cmap='RdYlGn', alpha=0.7, s=50)
+        ax2.set_title('Colored by Financial Health Score')
+        ax2.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax2.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        plt.colorbar(scatter2, ax=ax2, label='Financial Health Score')
+        
+        # 3. Colored by credit score
+        scatter3 = ax3.scatter(features_2d[:, 0], features_2d[:, 1], 
+                              c=self.user_features['credit_score'], 
+                              cmap='viridis', alpha=0.7, s=50)
+        ax3.set_title('Colored by Credit Score')
+        ax3.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax3.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        plt.colorbar(scatter3, ax=ax3, label='Credit Score')
+        
+        # 4. Colored by DTI ratio
+        scatter4 = ax4.scatter(features_2d[:, 0], features_2d[:, 1], 
+                              c=self.user_features['dti_ratio'], 
+                              cmap='Reds', alpha=0.7, s=50)
+        ax4.set_title('Colored by Debt-to-Income Ratio')
+        ax4.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax4.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        plt.colorbar(scatter4, ax=ax4, label='DTI Ratio')
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Print PCA explanation
+        print(f"PCA Explained Variance:")
+        print(f"  PC1: {pca.explained_variance_ratio_[0]:.1%}")
+        print(f"  PC2: {pca.explained_variance_ratio_[1]:.1%}")
+        print(f"  Total: {sum(pca.explained_variance_ratio_):.1%}")
+        
+        return features_2d, pca
     
     def generate_financial_content_recommendations(self):
         """Generate financially-aware content recommendations"""
@@ -349,6 +620,12 @@ class FinanciallyAwareRecommender:
         
         # Generate recommendations
         recommendations = self.generate_financial_content_recommendations()
+        
+        # Create comprehensive visualizations
+        self.create_financial_visualizations()
+        
+        # Create clustering visualizations
+        self.visualize_financial_clustering()
         
         # Print sample recommendations
         self.print_enhanced_recommendations(recommendations)
