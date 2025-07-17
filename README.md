@@ -335,3 +335,18 @@ High Engagement           0.462       0.329    0.273     0.245  0.343    0.189
 Low Engagement            0.336       0.206    0.353     0.309  0.118    0.137
 Medium Engagement         0.117       0.233    0.118     0.133  0.228    0.311
 
+
+Financial: 
+Leads to changes in recommendations
+Stable       34
+At_Risk      33
+Excellent    33
+
+Segments:
+Premium_Engaged      20
+Growth_Focused       18
+Recovery_Moderate    17
+Mainstream           16
+Recovery_Engaged     16
+Premium_Moderate     13
+
