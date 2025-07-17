@@ -49,7 +49,7 @@ class FinanciallyAwareRecommender:
             # Asset Component (having mortgage/car indicates stability)
             asset_component = (user['has_mortgage'] * 0.6 + user['has_car'] * 0.4)
             
-            # Calculate composite financial health score (0-1) (Weightings can be changed, currently haviest weighting given to credit score maybe ccj should be more)
+            # Calculate composite financial health score (0-1) (Weightings can be changed, currently heaviest weighting given to credit score maybe ccj should be more)
             financial_health = (
                 credit_component * 0.30 +
                 dti_component * 0.25 +
