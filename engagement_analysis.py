@@ -534,6 +534,186 @@ class UserEngagementAnalyzer:
                 print("  - Create bite-sized, easy-to-consume content")
                 print("  - Implement re-engagement campaigns and incentives")
     
+    def analyze_cluster_composition(self):
+        """Analyze the composition of each K-means cluster by individual engagement levels"""
+        print("\n" + "=" * 60)
+        print("CLUSTER COMPOSITION ANALYSIS")
+        print("=" * 60)
+        
+        # Calculate individual engagement scores for each user
+        individual_scores = []
+        for _, user_data in self.user_features.iterrows():
+            score = (user_data['click_rate'] * 0.5 + 
+                    min(user_data['avg_time_viewed'] / 60, 1) * 0.25 + 
+                    min(user_data['total_interactions'] / 12, 1) * 0.25)
+            individual_scores.append(score)
+        
+        self.user_features['individual_engagement_score'] = individual_scores
+        
+        # Define thresholds for individual engagement classification (using percentiles)
+        low_threshold = np.percentile(individual_scores, 33.33)
+        high_threshold = np.percentile(individual_scores, 66.67)
+        
+        print(f"Individual Engagement Score Thresholds:")
+        print(f"  Low Engagement: < {low_threshold:.3f}")
+        print(f"  Medium Engagement: {low_threshold:.3f} - {high_threshold:.3f}")
+        print(f"  High Engagement: > {high_threshold:.3f}")
+        
+        # Classify each user by individual engagement level
+        def classify_individual_engagement(score):
+            if score < low_threshold:
+                return "Low"
+            elif score < high_threshold:
+                return "Medium"
+            else:
+                return "High"
+        
+        self.user_features['individual_engagement_level'] = [
+            classify_individual_engagement(score) for score in individual_scores
+        ]
+        
+        # Create cross-tabulation of clusters vs individual engagement levels
+        print(f"\nCLUSTER COMPOSITION BY INDIVIDUAL ENGAGEMENT LEVELS:")
+        print("=" * 50)
+        
+        composition = pd.crosstab(
+            self.user_features['segment'], 
+            self.user_features['individual_engagement_level'], 
+            margins=True
+        )
+        print(composition)
+        
+        # Show percentages within each cluster
+        print(f"\nPERCENTAGE BREAKDOWN WITHIN EACH CLUSTER:")
+        print("=" * 50)
+        composition_pct = pd.crosstab(
+            self.user_features['segment'], 
+            self.user_features['individual_engagement_level'], 
+            normalize='index'
+        ) * 100
+        print(composition_pct.round(1))
+        
+        # Detailed breakdown for each cluster
+        print(f"\nDETAILED CLUSTER BREAKDOWN:")
+        print("=" * 50)
+        
+        for cluster in sorted(self.user_features['segment'].unique()):
+            cluster_data = self.user_features[self.user_features['segment'] == cluster]
+            cluster_name = cluster_data['segment_name'].iloc[0]
+            total_users = len(cluster_data)
+            
+            print(f"\nCluster {cluster} ({cluster_name}) - {total_users} users:")
+            
+            engagement_breakdown = cluster_data['individual_engagement_level'].value_counts()
+            for level in ['High', 'Medium', 'Low']:
+                count = engagement_breakdown.get(level, 0)
+                percentage = (count / total_users) * 100
+                print(f"  {level} Individual Engagement: {count} users ({percentage:.1f}%)")
+            
+            # Show average scores
+            avg_cluster_score = cluster_data['individual_engagement_score'].mean()
+            print(f"  Average Individual Score: {avg_cluster_score:.3f}")
+            print(f"  Score Range: {cluster_data['individual_engagement_score'].min():.3f} - {cluster_data['individual_engagement_score'].max():.3f}")
+        
+        return composition, composition_pct
+    
+    def visualize_clusters(self):
+        """Visualize the K-means clusters using PCA"""
+        print("\n" + "=" * 60)
+        print("CLUSTER VISUALIZATION")
+        print("=" * 60)
+        
+        # Prepare features for clustering (same as used in segmentation)
+        features_for_clustering = self.user_features.select_dtypes(include=[np.number]).fillna(0)
+        # Remove the segment column and any other non-feature columns
+        feature_cols = [col for col in features_for_clustering.columns 
+                       if col not in ['segment', 'individual_engagement_score']]
+        features_clean = features_for_clustering[feature_cols]
+        
+        # Scale features (same as used in clustering)
+        features_scaled = self.scaler.fit_transform(features_clean)
+        
+        # Apply PCA to reduce to 2D
+        pca = PCA(n_components=2, random_state=42)
+        features_2d = pca.fit_transform(features_scaled)
+        
+        # Create the visualization
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle('K-means Clustering Visualization', fontsize=16, fontweight='bold')
+        
+        # 1. Clusters by segment number (0, 1, 2)
+        scatter1 = ax1.scatter(features_2d[:, 0], features_2d[:, 1], 
+                              c=self.user_features['segment'], 
+                              cmap='viridis', alpha=0.7, s=50)
+        ax1.set_title('Clusters by Segment Number')
+        ax1.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax1.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        plt.colorbar(scatter1, ax=ax1, label='Cluster')
+        
+        # Add cluster centers
+        kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+        kmeans.fit(features_scaled)
+        centers_2d = pca.transform(kmeans.cluster_centers_)
+        ax1.scatter(centers_2d[:, 0], centers_2d[:, 1], 
+                   c='red', marker='x', s=200, linewidths=3, label='Centroids')
+        ax1.legend()
+        
+        # 2. Clusters by engagement level names
+        segment_colors = {'High Engagement': 'red', 'Medium Engagement': 'orange', 'Low Engagement': 'blue'}
+        for segment_name, color in segment_colors.items():
+            mask = self.user_features['segment_name'] == segment_name
+            if mask.any():
+                ax2.scatter(features_2d[mask, 0], features_2d[mask, 1], 
+                           c=color, label=segment_name, alpha=0.7, s=50)
+        ax2.set_title('Clusters by Engagement Level Names')
+        ax2.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        ax2.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        ax2.legend()
+        
+        # 3. Individual engagement scores (if available)
+        if 'individual_engagement_score' in self.user_features.columns:
+            scatter3 = ax3.scatter(features_2d[:, 0], features_2d[:, 1], 
+                                  c=self.user_features['individual_engagement_score'], 
+                                  cmap='RdYlBu_r', alpha=0.7, s=50)
+            ax3.set_title('Individual Engagement Scores')
+            ax3.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+            ax3.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+            plt.colorbar(scatter3, ax=ax3, label='Engagement Score')
+        else:
+            ax3.text(0.5, 0.5, 'Individual engagement scores\nnot calculated yet', 
+                    ha='center', va='center', transform=ax3.transAxes)
+            ax3.set_title('Individual Engagement Scores (Not Available)')
+        
+        # 4. Feature importance (PCA components)
+        feature_names = feature_cols
+        pc1_importance = np.abs(pca.components_[0])
+        pc2_importance = np.abs(pca.components_[1])
+        
+        # Get top 10 most important features for each PC
+        top_pc1_idx = np.argsort(pc1_importance)[-10:]
+        top_pc2_idx = np.argsort(pc2_importance)[-10:]
+        
+        y_pos = np.arange(len(top_pc1_idx))
+        ax4.barh(y_pos, pc1_importance[top_pc1_idx], alpha=0.7, label='PC1')
+        ax4.barh(y_pos + 0.4, pc2_importance[top_pc1_idx], alpha=0.7, label='PC2')
+        ax4.set_yticks(y_pos + 0.2)
+        ax4.set_yticklabels([feature_names[i][:15] + '...' if len(feature_names[i]) > 15 
+                            else feature_names[i] for i in top_pc1_idx])
+        ax4.set_xlabel('Absolute Component Weight')
+        ax4.set_title('Top Features Contributing to PCs')
+        ax4.legend()
+        
+        plt.tight_layout()
+        plt.show()
+        
+        # Print PCA explanation
+        print(f"PCA Explained Variance:")
+        print(f"  PC1: {pca.explained_variance_ratio_[0]:.1%}")
+        print(f"  PC2: {pca.explained_variance_ratio_[1]:.1%}")
+        print(f"  Total: {sum(pca.explained_variance_ratio_):.1%}")
+        
+        return features_2d, pca
+    
     def run_complete_analysis(self):
         """Run the complete analysis pipeline"""
         print("Starting comprehensive user engagement analysis...")
@@ -562,12 +742,37 @@ class UserEngagementAnalyzer:
         # Generate segment insights
         self.generate_segment_insights()
         
+        # Analyze cluster composition
+        self.analyze_cluster_composition()
+
+        # Visualize clusters
+        self.visualize_clusters()
+        
         return recommendations
 
 # Run the analysis
 if __name__ == "__main__":
+    #Merge/join the data on user_id
+    engagement = pd.read_csv('user_engagement_final.csv')
+    attributes = pd.read_csv('user_attributes.csv')
+    # Join on 'user_id'
+    merged = pd.merge(engagement, attributes, on='user_id', how='inner')
+    merged.to_csv('joined_output.csv', index=False)  # or 'l
+    
+    df = pd.read_csv('joined_output.csv')
+
+    print(f"Original shape: {df.shape}")
+    print(f"First few user_ids: {df['user_id'].head().tolist()}")
+
+    # Sort by user_id
+    df_sorted = df.sort_values('user_id')
+
+    print(f"After sorting - First few user_ids: {df_sorted['user_id'].head().tolist()}")
+
+    # Save the sorted version
+    df_sorted.to_csv('joined_user_table.csv', index=False)
     # Initialize analyzer
-    analyzer = UserEngagementAnalyzer('user_engagement_final.csv')
+    analyzer = UserEngagementAnalyzer('joined_user_table.csv')
     
     # Run complete analysis
     recommendations = analyzer.run_complete_analysis()
