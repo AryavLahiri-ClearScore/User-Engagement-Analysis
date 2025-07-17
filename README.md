@@ -346,6 +346,8 @@ Assets: 5%
 
 
 Financial: 
+Set thresholds as 33 and 67 percentiles
+
 Leads to changes in recommendations
 Stable       34
 At_Risk      33
@@ -370,4 +372,5 @@ Premium_Engaged                     0.79  0.04       912.55  811  1000      0.26
 Premium_Moderate                    0.82  0.05       922.38  810  1000      0.21  0.13  44039.60  43935.58             0.40
 Recovery_Engaged                    0.56  0.08       658.75  359   778      0.68  0.23  32577.71  33977.16             0.58
 Recovery_Moderate                   0.57  0.07       657.47  419   781      0.64  0.17  36790.07  36175.31             0.42
+
 
