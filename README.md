@@ -335,6 +335,15 @@ High Engagement           0.462       0.329    0.273     0.245  0.343    0.189
 Low Engagement            0.336       0.206    0.353     0.309  0.118    0.137
 Medium Engagement         0.117       0.233    0.118     0.133  0.228    0.311
 
+Financial side
+Normalize all financial attributes to be between 0 to 1 and then give each attribute a percentage weighting
+Credit card score: 30%
+DTI: 25%
+Missed payments: 15%
+Income: 15%
+CCJ: 10%
+Assets: 5%
+
 
 Financial: 
 Leads to changes in recommendations
@@ -349,4 +358,16 @@ Recovery_Moderate    17
 Mainstream           16
 Recovery_Engaged     16
 Premium_Moderate     13
+
+SEGMENT ANALYSIS BY FINANCIAL HEALTH
+============================================================
+                  financial_health_score       credit_score            dti_ratio          income           engagement_score
+                                    mean   std         mean  min   max      mean   std      mean    median             mean
+enhanced_segment                                                                                                           
+Growth_Focused                      0.71  0.03       808.56  697   919      0.40  0.15  42529.48  42682.56             0.57
+Mainstream                          0.70  0.03       784.31  696   898      0.37  0.16  43516.15  45486.42             0.41
+Premium_Engaged                     0.79  0.04       912.55  811  1000      0.26  0.11  45034.34  47152.50             0.58
+Premium_Moderate                    0.82  0.05       922.38  810  1000      0.21  0.13  44039.60  43935.58             0.40
+Recovery_Engaged                    0.56  0.08       658.75  359   778      0.68  0.23  32577.71  33977.16             0.58
+Recovery_Moderate                   0.57  0.07       657.47  419   781      0.64  0.17  36790.07  36175.31             0.42
 
