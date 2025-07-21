@@ -374,3 +374,51 @@ Recovery_Engaged                    0.56  0.08       658.75  359   778      0.68
 Recovery_Moderate                   0.57  0.07       657.47  419   781      0.64  0.17  36790.07  36175.31             0.42
 
 
+
+NEW removing Percentiles and doing absolute threshold:
+financial_category
+Good         55
+Fair         26
+Excellent    16
+Poor          3
+Name: count, dtype: int64
+Score ranges: 0.364 - 0.901
+
+Absolute Categorization Thresholds Applied:
+Excellent: Score >= 0.8 (Strong financial health across all metrics)
+Good: Score >= 0.65 (Above average financial health)
+Fair: Score >= 0.45 (Some concerns but manageable)
+Poor: Score < 0.45 (Significant financial challenges)
+
+Enhanced segment distribution:
+enhanced_segment
+Growth_Focused       45
+Mainstream           36
+Premium_Moderate      9
+Premium_Engaged       7
+Recovery_Engaged      2
+Recovery_Moderate     1
+Name: count, dtype: int64
+Generating financially-aware recommendations...
+
+
+================================================================================
+ENHANCED FINANCIALLY-AWARE RECOMMENDATIONS
+================================================================================
+
+============================================================
+SEGMENT ANALYSIS BY FINANCIAL HEALTH
+============================================================
+                  financial_health_score       credit_score            dti_ratio          income           engagement_score
+                                    mean   std         mean  min   max      mean   std      mean    median             mean
+enhanced_segment                                                                                                           
+Growth_Focused                      0.69  0.08       795.11  529   944      0.45  0.18  40920.80  39373.39             0.57
+Mainstream                          0.66  0.08       745.39  519   941      0.49  0.21  39796.95  40970.50             0.42
+Premium_Engaged                     0.83  0.02       945.00  900  1000      0.16  0.12  41589.88  42675.06             0.59
+Premium_Moderate                    0.85  0.04       940.44  833  1000      0.17  0.14  47296.07  46095.15             0.39
+Recovery_Engaged                    0.41  0.06       475.00  359   591      1.09  0.04  27447.66  27447.66             0.63
+Recovery_Moderate                   0.41   NaN       419.00  419   419      0.50   NaN  35849.77  35849.77             0.44
+
+Enhanced recommendations saved to 'enhanced_financial_recommendations.csv'
+
+
