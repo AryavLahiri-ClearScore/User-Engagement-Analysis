@@ -19,8 +19,8 @@ class FinanciallyAwareRecommender:
         self.scaler = StandardScaler()
         
     def create_financial_health_score(self):
-        """Create a comprehensive financial health score"""
-        print("Creating financial health scores...")
+        """Create a comprehensive financial health score with absolute threshold categorization"""
+        print("Creating financial health scores with absolute categorization thresholds...")
         
         # Get unique users with their financial attributes
         user_financial = self.df.groupby('user_id').first()[
@@ -49,7 +49,7 @@ class FinanciallyAwareRecommender:
             # Asset Component (having mortgage/car indicates stability)
             asset_component = (user['has_mortgage'] * 0.6 + user['has_car'] * 0.4)
             
-            # Calculate composite financial health score (0-1) (Weightings can be changed, currently heaviest weighting given to credit score maybe ccj should be more)
+            # Calculate composite financial health score (0-1) with improved weighting
             financial_health = (
                 credit_component * 0.30 +
                 dti_component * 0.25 +
@@ -63,24 +63,29 @@ class FinanciallyAwareRecommender:
         
         user_financial['financial_health_score'] = financial_scores
         
-        # Categorize financial health
-        low_threshold = np.percentile(financial_scores, 33)
-        high_threshold = np.percentile(financial_scores, 67)
-        
+        # ABSOLUTE THRESHOLDS based on real UK financial health standards
         def categorize_financial_health(score):
-            if score < low_threshold:
-                return "At_Risk"
-            elif score < high_threshold:
-                return "Stable"
+            if score >= 0.8:
+                return "Excellent"      # Strong across all metrics
+            elif score >= 0.65:
+                return "Good"           # Above average financial health
+            elif score >= 0.45:
+                return "Fair"           # Some concerns but manageable
             else:
-                return "Excellent"
-                
-        user_financial['financial_category'] = [
-            categorize_financial_health(score) for score in financial_scores
-        ]
+                return "Poor"           # Significant financial challenges
         
-        print(f"Financial health distribution:")
+        user_financial['financial_category'] = user_financial['financial_health_score'].apply(categorize_financial_health)
+        
+        print("Financial health distribution with absolute thresholds:")
         print(user_financial['financial_category'].value_counts())
+        print(f"Score ranges: {user_financial['financial_health_score'].min():.3f} - {user_financial['financial_health_score'].max():.3f}")
+        
+        # Show categorization thresholds used
+        print("\nAbsolute Categorization Thresholds Applied:")
+        print("Excellent: Score >= 0.8 (Strong financial health across all metrics)")
+        print("Good: Score >= 0.65 (Above average financial health)")
+        print("Fair: Score >= 0.45 (Some concerns but manageable)")
+        print("Poor: Score < 0.45 (Significant financial challenges)")
         
         return user_financial
     
@@ -155,19 +160,19 @@ class FinanciallyAwareRecommender:
             if engagement > 0.5:
                 if financial_cat == "Excellent":
                     return "Premium_Engaged"
-                elif financial_cat == "Stable":
+                elif financial_cat in ["Good", "Fair"]:
                     return "Growth_Focused"
                 else:
                     return "Recovery_Engaged"
             elif engagement > 0.25:
                 if financial_cat == "Excellent":
                     return "Premium_Moderate"
-                elif financial_cat == "Stable":
+                elif financial_cat in ["Good", "Fair"]:
                     return "Mainstream"
                 else:
                     return "Recovery_Moderate"
             else:
-                if financial_cat == "At_Risk":
+                if financial_cat == "Poor":
                     return "Financial_Priority"
                 else:
                     return "Activation_Needed"
@@ -182,7 +187,7 @@ class FinanciallyAwareRecommender:
     def create_financial_visualizations(self):
         """Create comprehensive financial and engagement visualizations"""
         print("\n" + "=" * 60)
-        print("CREATING FINANCIAL ANALYSIS VISUALIZATIONS")
+        print("CREATING FINANCIAL ANALYSIS VISUALaIZATIONS")
         print("=" * 60)
         
         # FIGURE 1: Financial Health Dashboard (2x3 grid)
@@ -351,7 +356,7 @@ class FinanciallyAwareRecommender:
         plt.colorbar(im2, ax=axes3[1, 0], fraction=0.046, pad=0.04)
         
         # 4. Financial vs Engagement score comparison
-        financial_categories = ['At_Risk', 'Stable', 'Excellent']
+        financial_categories = ['Poor', 'Fair', 'Good', 'Excellent']
         fin_eng_comparison = self.user_features.groupby('financial_category')[['financial_health_score', 'engagement_score']].mean()
         
         x = np.arange(len(financial_categories))
@@ -489,8 +494,8 @@ class FinanciallyAwareRecommender:
                     base_score *= 0.5  # Reduce loan recommendations for high DTI
                 elif content_type == 'credit_cards' and has_ccj:
                     base_score *= 0.3  # Reduce credit card recommendations for CCJ users
-                elif content_type == 'drivescore' and financial_cat == "At_Risk":
-                    base_score *= 1.8  # Financial education priority for at-risk users
+                elif content_type == 'drivescore' and financial_cat == "Poor":
+                    base_score *= 1.8  # Financial education priority for financially challenged users
                 elif content_type == 'insights' and missed_payments > 2:
                     base_score *= 1.7  # Financial insights for users with payment issues
                 
@@ -557,7 +562,7 @@ class FinanciallyAwareRecommender:
         if user_data['has_ccj']:
             flags.append("LEGAL_ACTION")
         
-        return flags if flags else ["STABLE"]
+        return flags if flags else ["STABLE_FINANCIAL_POSITION"]
     
     def get_strategy_by_segment(self, segment, user_data):
         """Get tailored strategy based on enhanced segment"""
@@ -570,7 +575,7 @@ class FinanciallyAwareRecommender:
             
             "Premium_Moderate": f"Offer premium content with clear value propositions. Balance wealth building with practical financial advice. Leverage high financial health score: {user_data['financial_health_score']:.2f}.",
             
-            "Mainstream": f"Provide balanced financial content for stable users. Focus on practical advice and gradual improvement. Build on stable financial foundation.",
+            "Mainstream": f"Provide balanced financial content for users with decent financial health. Focus on practical advice and gradual improvement. Build on solid financial foundation.",
             
             "Recovery_Moderate": f"Deliver accessible financial recovery content. Simplify complex concepts and focus on immediate actionable steps. Address DTI ratio: {user_data['dti_ratio']:.2f}.",
             
