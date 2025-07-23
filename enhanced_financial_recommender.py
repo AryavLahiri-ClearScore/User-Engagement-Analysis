@@ -89,7 +89,7 @@ class FinanciallyAwareRecommender:
         
         # Show categorization thresholds used
         print("\nAbsolute Categorization Thresholds Applied:")
-        print("High DTI: DTI >= 35% (PRIORITY: Critical debt management needed - overrides other categories)")
+        print("High DTI: DTI >= 50% (PRIORITY: Critical debt management needed - overrides other categories)")
         print("Excellent: Score >= 0.8 (Strong financial health across all metrics)")
         print("Good: Score >= 0.65 (Above average financial health)")
         print("Fair: Score >= 0.45 (Some concerns but manageable)")
@@ -559,8 +559,8 @@ class FinanciallyAwareRecommender:
         """Identify financial priorities for a user"""
         priorities = []
         
-        # High DTI is the top priority
-        if user_data['dti_ratio'] >= 0.35:
+        # High DTI (≥50%) is the top priority - UNIFORM THRESHOLD
+        if user_data['dti_ratio'] >= 0.50:
             priorities.append("URGENT_DTI_REDUCTION")
         
         if user_data['credit_score'] < 650:
@@ -660,7 +660,7 @@ class FinanciallyAwareRecommender:
         
         Parameters:
         - ascending: If True, sort from lowest to highest DTI. If False, highest to lowest (default)
-        - min_dti: Filter to only show users with DTI >= this value (e.g., 0.35 for high DTI)
+        - min_dti: Filter to only show users with DTI >= this value (e.g., 0.50 for high DTI)
         - top_n: Show only the top N users (e.g., top 10 highest DTI)
         - show_details: Print detailed analysis and summary
         
@@ -691,7 +691,7 @@ class FinanciallyAwareRecommender:
         # Add percentage format for easier reading
         dti_analysis['dti_percentage'] = dti_analysis['dti_ratio'] * 100
         
-        # Sort by DTI ratio
+        # Sort by DTI ratio (ascending=False means highest DTI first)
         dti_sorted = dti_analysis.sort_values('dti_ratio', ascending=ascending)
         
         # Apply filters if specified
@@ -720,17 +720,17 @@ class FinanciallyAwareRecommender:
             print(f"  Highest DTI: {dti_sorted['dti_ratio'].max():.1%}")
             print(f"  Lowest DTI: {dti_sorted['dti_ratio'].min():.1%}")
             
-            # DTI category breakdown
+            # DTI category breakdown - UNIFORM 50% THRESHOLD FOR "HIGH DTI"
             print(f"\nDTI Risk Categories:")
-            critical_dti = (dti_sorted['dti_ratio'] >= 0.50).sum()
-            high_dti = ((dti_sorted['dti_ratio'] >= 0.35) & (dti_sorted['dti_ratio'] < 0.50)).sum()
+            high_dti = (dti_sorted['dti_ratio'] >= 0.50).sum()  # HIGH DTI = 50%+
+            elevated_dti = ((dti_sorted['dti_ratio'] >= 0.35) & (dti_sorted['dti_ratio'] < 0.50)).sum()
             moderate_dti = ((dti_sorted['dti_ratio'] >= 0.25) & (dti_sorted['dti_ratio'] < 0.35)).sum()
-            low_dti = (dti_sorted['dti_ratio'] < 0.25).sum()
+            healthy_dti = (dti_sorted['dti_ratio'] < 0.25).sum()
             
-            print(f"  🚨 Critical (≥50%): {critical_dti} users ({critical_dti/analyzed_users*100:.1f}%)")
-            print(f"  ⚠️  High (35-49%): {high_dti} users ({high_dti/analyzed_users*100:.1f}%)")
+            print(f"  🚨 High DTI (≥50%): {high_dti} users ({high_dti/analyzed_users*100:.1f}%)")
+            print(f"  ⚠️  Elevated (35-49%): {elevated_dti} users ({elevated_dti/analyzed_users*100:.1f}%)")
             print(f"  ⚡ Moderate (25-34%): {moderate_dti} users ({moderate_dti/analyzed_users*100:.1f}%)")
-            print(f"  ✅ Healthy (<25%): {low_dti} users ({low_dti/analyzed_users*100:.1f}%)")
+            print(f"  ✅ Healthy (<25%): {healthy_dti} users ({healthy_dti/analyzed_users*100:.1f}%)")
             
             # Financial category correlation
             print(f"\nFinancial Category Distribution:")

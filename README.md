@@ -419,6 +419,11 @@ Premium_Moderate                    0.85  0.04       940.44  833  1000      0.17
 Recovery_Engaged                    0.41  0.06       475.00  359   591      1.09  0.04  27447.66  27447.66             0.63
 Recovery_Moderate                   0.41   NaN       419.00  419   419      0.50   NaN  35849.77  35849.77             0.44
 
-Enhanced recommendations saved to 'enhanced_financial_recommendations.csv'
+With DTI incorporated (threshold is 50%)
+Good: 45
+High DTI: 34
+Excellent: 16
+Fair: 5
+
 
 
