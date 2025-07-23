@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.cluster import KMeans
@@ -63,9 +64,15 @@ class FinanciallyAwareRecommender:
         
         user_financial['financial_health_score'] = financial_scores
         
-        # ABSOLUTE THRESHOLDS based on real UK financial health standards
-        def categorize_financial_health(score):
-            if score >= 0.8:
+        # ABSOLUTE THRESHOLDS with High DTI taking precedence
+        def categorize_financial_health(row):
+            score = row['financial_health_score']
+            dti_ratio = row['dti_ratio']
+            
+            # High DTI takes precedence over other categories
+            if dti_ratio >= 0.5:
+                return "High DTI"       # Critical debt management needed
+            elif score >= 0.8:
                 return "Excellent"      # Strong across all metrics
             elif score >= 0.65:
                 return "Good"           # Above average financial health
@@ -74,7 +81,7 @@ class FinanciallyAwareRecommender:
             else:
                 return "Poor"           # Significant financial challenges
         
-        user_financial['financial_category'] = user_financial['financial_health_score'].apply(categorize_financial_health)
+        user_financial['financial_category'] = user_financial.apply(categorize_financial_health, axis=1)
         
         print("Financial health distribution with absolute thresholds:")
         print(user_financial['financial_category'].value_counts())
@@ -82,6 +89,7 @@ class FinanciallyAwareRecommender:
         
         # Show categorization thresholds used
         print("\nAbsolute Categorization Thresholds Applied:")
+        print("High DTI: DTI >= 35% (PRIORITY: Critical debt management needed - overrides other categories)")
         print("Excellent: Score >= 0.8 (Strong financial health across all metrics)")
         print("Good: Score >= 0.65 (Above average financial health)")
         print("Fair: Score >= 0.45 (Some concerns but manageable)")
@@ -157,7 +165,10 @@ class FinanciallyAwareRecommender:
             engagement = row['engagement_score']
             financial_cat = row['financial_category']
             
-            if engagement > 0.5:
+            # High DTI takes priority - these users need debt management regardless of engagement
+            if financial_cat == "High DTI":
+                return "Debt_Management_Priority"
+            elif engagement > 0.5:
                 if financial_cat == "Excellent":
                     return "Premium_Engaged"
                 elif financial_cat in ["Good", "Fair"]:
@@ -254,8 +265,9 @@ class FinanciallyAwareRecommender:
         
         plt.tight_layout()
         plt.savefig('financial_health_dashboard.png', dpi=300, bbox_inches='tight')
-        plt.show()
         print("✅ Saved: financial_health_dashboard.png")
+        plt.show()  # 🖼️ THIS CODE POPS UP THE VISUALIZATION!
+        plt.close()  # Close figure to free memory
         
         # FIGURE 2: Financial Metrics Deep Dive (2x2 grid)
         fig2, axes2 = plt.subplots(2, 2, figsize=(15, 10))
@@ -315,8 +327,9 @@ class FinanciallyAwareRecommender:
         plt.colorbar(im, ax=axes2[1, 1], fraction=0.046, pad=0.04)
         plt.tight_layout()
         plt.savefig('financial_metrics_analysis.png', dpi=300, bbox_inches='tight')
-        plt.show()
         print("✅ Saved: financial_metrics_analysis.png")
+        plt.show()  # 🖼️ THIS CODE POPS UP THE VISUALIZATION!
+        plt.close()  # Close figure to free memory
         
         # FIGURE 3: Segment Analysis & Recommendations (2x2 grid)
         fig3, axes3 = plt.subplots(2, 2, figsize=(15, 10))
@@ -356,8 +369,8 @@ class FinanciallyAwareRecommender:
         plt.colorbar(im2, ax=axes3[1, 0], fraction=0.046, pad=0.04)
         
         # 4. Financial vs Engagement score comparison
-        financial_categories = ['Poor', 'Fair', 'Good', 'Excellent']
         fin_eng_comparison = self.user_features.groupby('financial_category')[['financial_health_score', 'engagement_score']].mean()
+        financial_categories = fin_eng_comparison.index.tolist()  # Use actual categories that exist
         
         x = np.arange(len(financial_categories))
         width = 0.35
@@ -376,8 +389,9 @@ class FinanciallyAwareRecommender:
         
         plt.tight_layout()
         plt.savefig('enhanced_engagement_analysis.png', dpi=300, bbox_inches='tight')
-        plt.show()
         print("✅ Saved: enhanced_engagement_analysis.png")
+        plt.show()  # 🖼️ THIS CODE POPS UP THE VISUALIZATION!
+        plt.close()  # Close figure to free memory
     
     def visualize_financial_clustering(self):
         """Visualize the enhanced clustering with financial context"""
@@ -445,8 +459,9 @@ class FinanciallyAwareRecommender:
         
         plt.tight_layout()
         plt.savefig('financial_clustering_analysis.png', dpi=300, bbox_inches='tight')
-        plt.show()
         print("✅ Saved: financial_clustering_analysis.png")
+        plt.show()  # 🖼️ THIS CODE POPS UP THE VISUALIZATION!
+        plt.close()  # Close figure to free memory
         
         # Print PCA explanation
         print(f"PCA Explained Variance:")
@@ -486,7 +501,19 @@ class FinanciallyAwareRecommender:
                 base_score = user_prefs[content_type]
                 
                 # Apply financial relevance multipliers
-                if content_type == 'improve' and credit_score < 650:
+                # HIGH DTI PRIORITY - Focus on debt reduction strategies
+                if financial_cat == "High DTI":
+                    if content_type == 'improve':
+                        base_score *= 3.0  # Highest priority - debt management strategies
+                    elif content_type == 'insights':
+                        base_score *= 2.5  # Financial insights for debt reduction
+                    elif content_type == 'loans':
+                        base_score *= 0.2  # Strongly discourage more loans
+                    elif content_type == 'credit_cards':
+                        base_score *= 0.1  # Strongly discourage credit cards
+                    elif content_type == 'protect':
+                        base_score *= 0.3  # Lower priority until debt managed
+                elif content_type == 'improve' and credit_score < 650:
                     base_score *= 2.0  # Credit improvement is high priority
                 elif content_type == 'protect' and financial_cat == "Excellent":
                     base_score *= 1.5  # Wealth protection for financially healthy users
@@ -532,6 +559,10 @@ class FinanciallyAwareRecommender:
         """Identify financial priorities for a user"""
         priorities = []
         
+        # High DTI is the top priority
+        if user_data['dti_ratio'] >= 0.35:
+            priorities.append("URGENT_DTI_REDUCTION")
+        
         if user_data['credit_score'] < 650:
             priorities.append("Credit_Repair")
         if user_data['dti_ratio'] > 0.6:
@@ -567,6 +598,8 @@ class FinanciallyAwareRecommender:
     def get_strategy_by_segment(self, segment, user_data):
         """Get tailored strategy based on enhanced segment"""
         strategies = {
+            "Debt_Management_Priority": f"🚨 CRITICAL: DTI {user_data['dti_ratio']:.1%} - URGENT debt reduction required. Focus on debt consolidation, payment strategies, budgeting, and avoid all new debt. Immediate action needed.",
+            
             "Premium_Engaged": f"Offer premium wealth management and investment content. Focus on portfolio optimization and advanced financial strategies. Credit score: {user_data['credit_score']}.",
             
             "Growth_Focused": f"Provide growth-oriented financial content with moderate complexity. Focus on building wealth and improving financial position. Current DTI: {user_data['dti_ratio']:.2f}.",
@@ -620,6 +653,113 @@ class FinanciallyAwareRecommender:
         print(segment_analysis)
         
         return segment_analysis
+    
+    def sort_users_by_dti(self, ascending=False, min_dti=None, top_n=None, show_details=True):
+        """
+        Sort and analyze users by their DTI (Debt-to-Income) ratio
+        
+        Parameters:
+        - ascending: If True, sort from lowest to highest DTI. If False, highest to lowest (default)
+        - min_dti: Filter to only show users with DTI >= this value (e.g., 0.35 for high DTI)
+        - top_n: Show only the top N users (e.g., top 10 highest DTI)
+        - show_details: Print detailed analysis and summary
+        
+        Returns:
+        - DataFrame sorted by DTI with relevant financial information
+        """
+        if self.user_features is None:
+            print("❌ Error: No user features available. Run create_enhanced_user_features() first.")
+            return None
+        
+        # Select relevant columns for DTI analysis - only use columns that exist
+        base_dti_columns = [
+            'dti_ratio', 'financial_category', 'financial_health_score',
+            'credit_score', 'total_debt', 'income', 'missed_payments', 'has_ccj', 
+            'has_mortgage', 'has_car'
+        ]
+        
+        # Check which columns actually exist in user_features
+        available_columns = [col for col in base_dti_columns if col in self.user_features.columns]
+        
+        if 'dti_ratio' not in available_columns:
+            print("❌ Error: DTI ratio column not found in user features.")
+            return None
+        
+        # Create DTI analysis DataFrame
+        dti_analysis = self.user_features[available_columns].copy()
+        
+        # Add percentage format for easier reading
+        dti_analysis['dti_percentage'] = dti_analysis['dti_ratio'] * 100
+        
+        # Sort by DTI ratio
+        dti_sorted = dti_analysis.sort_values('dti_ratio', ascending=ascending)
+        
+        # Apply filters if specified
+        if min_dti is not None:
+            dti_sorted = dti_sorted[dti_sorted['dti_ratio'] >= min_dti]
+            
+        if top_n is not None:
+            dti_sorted = dti_sorted.head(top_n)
+        
+        if show_details:
+            print("📊 DTI ANALYSIS REPORT")
+            print("=" * 50)
+            
+            total_users = len(self.user_features)
+            analyzed_users = len(dti_sorted)
+            
+            print(f"Total users analyzed: {analyzed_users} out of {total_users}")
+            if min_dti:
+                print(f"Filtered for DTI >= {min_dti:.1%}")
+            if top_n:
+                print(f"Showing top {top_n} users")
+                
+            print(f"\nDTI Statistics:")
+            print(f"  Mean DTI: {dti_sorted['dti_ratio'].mean():.1%}")
+            print(f"  Median DTI: {dti_sorted['dti_ratio'].median():.1%}")
+            print(f"  Highest DTI: {dti_sorted['dti_ratio'].max():.1%}")
+            print(f"  Lowest DTI: {dti_sorted['dti_ratio'].min():.1%}")
+            
+            # DTI category breakdown
+            print(f"\nDTI Risk Categories:")
+            critical_dti = (dti_sorted['dti_ratio'] >= 0.50).sum()
+            high_dti = ((dti_sorted['dti_ratio'] >= 0.35) & (dti_sorted['dti_ratio'] < 0.50)).sum()
+            moderate_dti = ((dti_sorted['dti_ratio'] >= 0.25) & (dti_sorted['dti_ratio'] < 0.35)).sum()
+            low_dti = (dti_sorted['dti_ratio'] < 0.25).sum()
+            
+            print(f"  🚨 Critical (≥50%): {critical_dti} users ({critical_dti/analyzed_users*100:.1f}%)")
+            print(f"  ⚠️  High (35-49%): {high_dti} users ({high_dti/analyzed_users*100:.1f}%)")
+            print(f"  ⚡ Moderate (25-34%): {moderate_dti} users ({moderate_dti/analyzed_users*100:.1f}%)")
+            print(f"  ✅ Healthy (<25%): {low_dti} users ({low_dti/analyzed_users*100:.1f}%)")
+            
+            # Financial category correlation
+            print(f"\nFinancial Category Distribution:")
+            category_counts = dti_sorted['financial_category'].value_counts()
+            for category, count in category_counts.items():
+                print(f"  {category}: {count} users ({count/analyzed_users*100:.1f}%)")
+            
+            # Show user summary - all users or filtered subset
+            if top_n:
+                print(f"\n🔍 TOP {top_n} HIGHEST DTI USERS:")
+            elif min_dti:
+                print(f"\n🔍 ALL USERS WITH DTI >= {min_dti:.1%}:")
+            else:
+                print(f"\n🔍 ALL USERS RANKED BY DTI (HIGHEST TO LOWEST):")
+            
+            print("-" * 80)
+            
+            # Show all users in the filtered/sorted dataset
+            for idx, (user_id, user) in enumerate(dti_sorted.iterrows(), 1):
+                dti_pct = user['dti_percentage']
+                fin_cat = user['financial_category']
+                credit = user['credit_score']
+                income = user['income']
+                debt = user['total_debt']
+                
+                print(f"{idx:3d}. {user_id}: DTI {dti_pct:5.1f}% | {fin_cat:12s} | "
+                      f"Credit {credit:3.0f} | Income £{income:6.0f} | Debt £{debt:8.0f}")
+        
+        return dti_sorted
     
     def run_enhanced_analysis(self):
         """Run the complete enhanced analysis"""
