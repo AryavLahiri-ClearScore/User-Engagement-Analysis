@@ -71,7 +71,9 @@ class FinanciallyAwareRecommender:
             
             # High DTI takes precedence over other categories
             if dti_ratio >= 0.5:
-                return "High DTI"       # Critical debt management needed
+                return "High DTI"   
+            elif row['missed_payments'] >= 2:
+                return "Finn_Diff"
             elif score >= 0.8:
                 return "Excellent"      # Strong across all metrics
             elif score >= 0.65:
@@ -165,9 +167,14 @@ class FinanciallyAwareRecommender:
             engagement = row['engagement_score']
             financial_cat = row['financial_category']
             
-            # High DTI takes priority - these users need debt management regardless of engagement
+            # PRIORITY 1: High DTI takes priority - these users need debt management regardless of engagement
             if financial_cat == "High DTI":
                 return "Debt_Management_Priority"
+            
+            # PRIORITY 2: Finn_Diff takes priority - these users need payment management support
+            elif financial_cat == "Finn_Diff":
+                return "Payment_Recovery_Priority"
+            
             elif engagement > 0.5:
                 if financial_cat == "Excellent":
                     return "Premium_Engaged"
@@ -513,6 +520,19 @@ class FinanciallyAwareRecommender:
                         base_score *= 0.1  # Strongly discourage credit cards
                     elif content_type == 'protect':
                         base_score *= 0.3  # Lower priority until debt managed
+                
+                # FINN_DIFF PRIORITY - Focus on payment management and credit repair
+                elif financial_cat == "Finn_Diff":
+                    if content_type == 'improve':
+                        base_score *= 2.8  # High priority - payment management and credit repair
+                    elif content_type == 'insights':
+                        base_score *= 2.3  # Financial insights for payment strategies
+                    elif content_type == 'credit_cards':
+                        base_score *= 0.3  # Discourage more credit until payment issues resolved
+                    elif content_type == 'loans':
+                        base_score *= 0.4  # Discourage loans but not as severely as credit cards
+                    elif content_type == 'protect':
+                        base_score *= 1.2  # Some protection content may help with budgeting
                 elif content_type == 'improve' and credit_score < 650:
                     base_score *= 2.0  # Credit improvement is high priority
                 elif content_type == 'protect' and financial_cat == "Excellent":
@@ -599,6 +619,8 @@ class FinanciallyAwareRecommender:
         """Get tailored strategy based on enhanced segment"""
         strategies = {
             "Debt_Management_Priority": f"🚨 CRITICAL: DTI {user_data['dti_ratio']:.1%} - URGENT debt reduction required. Focus on debt consolidation, payment strategies, budgeting, and avoid all new debt. Immediate action needed.",
+            
+            "Payment_Recovery_Priority": f"🚨 PAYMENT ISSUES: {user_data['missed_payments']} missed payments detected - URGENT payment management required. Focus on payment scheduling, budgeting, automatic payments, and credit repair strategies. Address payment history immediately.",
             
             "Premium_Engaged": f"Offer premium wealth management and investment content. Focus on portfolio optimization and advanced financial strategies. Credit score: {user_data['credit_score']}.",
             
@@ -727,6 +749,7 @@ class FinanciallyAwareRecommender:
             moderate_dti = ((dti_sorted['dti_ratio'] >= 0.25) & (dti_sorted['dti_ratio'] < 0.35)).sum()
             healthy_dti = (dti_sorted['dti_ratio'] < 0.25).sum()
             
+            print("The analyzed users are: ", analyzed_users)
             print(f"  🚨 High DTI (≥50%): {high_dti} users ({high_dti/analyzed_users*100:.1f}%)")
             print(f"  ⚠️  Elevated (35-49%): {elevated_dti} users ({elevated_dti/analyzed_users*100:.1f}%)")
             print(f"  ⚡ Moderate (25-34%): {moderate_dti} users ({moderate_dti/analyzed_users*100:.1f}%)")
