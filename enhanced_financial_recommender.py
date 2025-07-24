@@ -478,6 +478,125 @@ class FinanciallyAwareRecommender:
         
         return features_2d, pca
     
+    def create_engagement_financial_correlation(self):
+        """Create correlation analysis between engagement and financial metrics"""
+        print("\n" + "=" * 60)
+        print("ENGAGEMENT vs FINANCIAL CORRELATION ANALYSIS")
+        print("=" * 60)
+        
+        # Select engagement and financial metrics for correlation
+        engagement_metrics = ['engagement_score', 'click_rate', 'avg_time_viewed', 
+                             'total_interactions', 'unique_content_viewed']
+        financial_metrics = ['financial_health_score', 'credit_score', 'dti_ratio', 
+                            'income', 'total_debt', 'missed_payments']
+        
+        # Combine all metrics for correlation analysis
+        correlation_metrics = engagement_metrics + financial_metrics
+        correlation_data = self.user_features[correlation_metrics]
+        
+        # Calculate correlation matrix
+        correlation_matrix = correlation_data.corr()
+        
+        # Create correlation heatmap
+        fig, ax = plt.subplots(1, 1, figsize=(12, 10))
+        
+        # Create heatmap with custom formatting
+        mask = np.triu(np.ones_like(correlation_matrix, dtype=bool), k=1)  # Mask upper triangle
+        
+        # Create heatmap
+        heatmap = sns.heatmap(correlation_matrix, 
+                             mask=mask,
+                             annot=True, 
+                             cmap='RdBu_r', 
+                             center=0,
+                             square=True,
+                             fmt='.2f',
+                             cbar_kws={"shrink": .8},
+                             ax=ax)
+        
+        ax.set_title('Engagement vs Financial Metrics Correlation Matrix', 
+                    fontsize=16, fontweight='bold', pad=20)
+        
+        # Rotate labels for better readability
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+        ax.set_yticklabels(ax.get_yticklabels(), rotation=0)
+        
+        plt.tight_layout()
+        plt.savefig('engagement_financial_correlation.png', dpi=300, bbox_inches='tight')
+        print("✅ Saved: engagement_financial_correlation.png")
+        plt.show()
+        plt.close()
+        
+        # Print key correlations
+        print("\nKEY CORRELATIONS (|r| > 0.3):")
+        print("-" * 50)
+        
+        # Find significant correlations between engagement and financial metrics
+        significant_correlations = []
+        for eng_metric in engagement_metrics:
+            for fin_metric in financial_metrics:
+                corr_value = correlation_matrix.loc[eng_metric, fin_metric]
+                if abs(corr_value) > 0.3:
+                    direction = "positive" if corr_value > 0 else "negative"
+                    strength = "strong" if abs(corr_value) > 0.7 else "moderate"
+                    significant_correlations.append({
+                        'engagement': eng_metric,
+                        'financial': fin_metric,
+                        'correlation': corr_value,
+                        'direction': direction,
+                        'strength': strength
+                    })
+                    print(f"• {eng_metric} ↔ {fin_metric}: {corr_value:.3f} ({strength} {direction})")
+        
+        if not significant_correlations:
+            print("  No correlations found with |r| > 0.3")
+        
+        # Highlight surprising or concerning correlations
+        print("\n⚠️  NOTABLE FINDINGS:")
+        print("-" * 30)
+        
+        # Check for counterintuitive correlations
+        engagement_financial_corr = correlation_matrix.loc[engagement_metrics, financial_metrics]
+        
+        # DTI vs engagement correlations (concerning if positive)
+        dti_eng_corr = engagement_financial_corr.loc[:, 'dti_ratio']
+        positive_dti_corr = dti_eng_corr[dti_eng_corr > 0.1]
+        if len(positive_dti_corr) > 0:
+            print("🚨 Positive DTI correlations (concerning - higher engagement = higher debt):")
+            for metric, corr in positive_dti_corr.items():
+                print(f"   - Higher {metric} correlates with higher DTI ({corr:.3f})")
+        
+        # Credit score vs engagement correlations (concerning if negative)
+        credit_eng_corr = engagement_financial_corr.loc[:, 'credit_score']
+        negative_credit_corr = credit_eng_corr[credit_eng_corr < -0.1]
+        if len(negative_credit_corr) > 0:
+            print("🚨 Negative credit score correlations (concerning - higher engagement = lower credit):")
+            for metric, corr in negative_credit_corr.items():
+                print(f"   - Higher {metric} correlates with lower credit score ({corr:.3f})")
+        
+        # Strong positive correlations with financial health (good signs)
+        fin_health_corr = engagement_financial_corr.loc[:, 'financial_health_score']
+        strong_positive = fin_health_corr[fin_health_corr > 0.3]
+        if len(strong_positive) > 0:
+            print("✅ Strong positive financial health correlations (good - higher engagement = better finances):")
+            for metric, corr in strong_positive.items():
+                print(f"   - Higher {metric} correlates with better financial health ({corr:.3f})")
+        
+        # Income correlations
+        income_corr = engagement_financial_corr.loc[:, 'income']
+        strong_income_corr = income_corr[abs(income_corr) > 0.2]
+        if len(strong_income_corr) > 0:
+            print("💰 Income correlations:")
+            for metric, corr in strong_income_corr.items():
+                direction = "higher" if corr > 0 else "lower"
+                print(f"   - Higher {metric} correlates with {direction} income ({corr:.3f})")
+        
+        if len(positive_dti_corr) == 0 and len(negative_credit_corr) == 0 and len(strong_positive) == 0:
+            print("  No notable correlation patterns found.")
+        
+        print()
+        return correlation_matrix, significant_correlations
+    
     def generate_financial_content_recommendations(self):
         """Generate financially-aware content recommendations"""
         print("Generating financially-aware recommendations...")
@@ -802,6 +921,9 @@ class FinanciallyAwareRecommender:
         
         # Create clustering visualizations
         self.visualize_financial_clustering()
+        
+        # Create engagement-financial correlation analysis
+        self.create_engagement_financial_correlation()
         
         # Print sample recommendations
         self.print_enhanced_recommendations(recommendations)
