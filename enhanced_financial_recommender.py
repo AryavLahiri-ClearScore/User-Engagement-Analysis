@@ -67,14 +67,14 @@ class FinanciallyAwareRecommender:
         # ABSOLUTE THRESHOLDS with High DTI taking precedence
         def categorize_financial_health(row):
             score = row['financial_health_score']
-            dti_ratio = row['dti_ratio']
+            # dti_ratio = row['dti_ratio']
             
             # High DTI takes precedence over other categories
-            if dti_ratio >= 0.5:
-                return "High DTI"   
-            elif row['missed_payments'] >= 2:
-                return "Finn_Diff"
-            elif score >= 0.8:
+            # if dti_ratio >= 0.5:
+            #     return "High DTI"   
+            # elif row['missed_payments'] >= 2:
+            #     return "Finn_Diff"
+            if score >= 0.8:
                 return "Excellent"      # Strong across all metrics
             elif score >= 0.65:
                 return "Good"           # Above average financial health
@@ -166,14 +166,16 @@ class FinanciallyAwareRecommender:
         def assign_segment_name(row):
             engagement = row['engagement_score']
             financial_cat = row['financial_category']
+            dti_ratio = row['dti_ratio']
+            missed_payments = row['missed_payments']
             
-            # PRIORITY 1: High DTI takes priority - these users need debt management regardless of engagement
-            if financial_cat == "High DTI":
-                return "Debt_Management_Priority"
-            
-            # PRIORITY 2: Finn_Diff takes priority - these users need payment management support
-            elif financial_cat == "Finn_Diff":
+            # PRIORITY 1: Finn_Diff takes highest priority - payment issues need immediate attention
+            if missed_payments >= 2:
                 return "Payment_Recovery_Priority"
+            
+            # PRIORITY 2: High DTI takes priority - these users need debt management regardless of engagement
+            elif dti_ratio >= 0.5:
+                return "Debt_Management_Priority"
             
             elif engagement > 0.5:
                 if financial_cat == "Excellent":
@@ -626,22 +628,9 @@ class FinanciallyAwareRecommender:
             for content_type in content_types:
                 base_score = user_prefs[content_type]
                 
-                # Apply financial relevance multipliers
-                # HIGH DTI PRIORITY - Focus on debt reduction strategies
-                if financial_cat == "High DTI":
-                    if content_type == 'improve':
-                        base_score *= 3.0  # Highest priority - debt management strategies
-                    elif content_type == 'insights':
-                        base_score *= 2.5  # Financial insights for debt reduction
-                    elif content_type == 'loans':
-                        base_score *= 0.2  # Strongly discourage more loans
-                    elif content_type == 'credit_cards':
-                        base_score *= 0.1  # Strongly discourage credit cards
-                    elif content_type == 'protect':
-                        base_score *= 0.3  # Lower priority until debt managed
-                
-                # FINN_DIFF PRIORITY - Focus on payment management and credit repair
-                elif financial_cat == "Finn_Diff":
+                # Apply financial relevance multipliers based on direct metrics
+                # PRIORITY 1: FINN_DIFF (Missed Payments >= 2) - Focus on payment management and credit repair
+                if missed_payments >= 2:
                     if content_type == 'improve':
                         base_score *= 2.8  # High priority - payment management and credit repair
                     elif content_type == 'insights':
@@ -652,6 +641,19 @@ class FinanciallyAwareRecommender:
                         base_score *= 0.4  # Discourage loans but not as severely as credit cards
                     elif content_type == 'protect':
                         base_score *= 1.2  # Some protection content may help with budgeting
+                
+                # PRIORITY 2: HIGH DTI (>= 50%) - Focus on debt reduction strategies
+                elif dti_ratio >= 0.5:
+                    if content_type == 'improve':
+                        base_score *= 3.0  # Highest priority - debt management strategies
+                    elif content_type == 'insights':
+                        base_score *= 2.5  # Financial insights for debt reduction
+                    elif content_type == 'loans':
+                        base_score *= 0.2  # Strongly discourage more loans
+                    elif content_type == 'credit_cards':
+                        base_score *= 0.1  # Strongly discourage credit cards
+                    elif content_type == 'protect':
+                        base_score *= 0.3  # Lower priority until debt managed
                 elif content_type == 'improve' and credit_score < 650:
                     base_score *= 2.0  # Credit improvement is high priority
                 elif content_type == 'protect' and financial_cat == "Excellent":
@@ -698,8 +700,12 @@ class FinanciallyAwareRecommender:
         """Identify financial priorities for a user"""
         priorities = []
         
-        # High DTI (≥50%) is the top priority - UNIFORM THRESHOLD
-        if user_data['dti_ratio'] >= 0.50:
+        # PRIORITY 1: Payment issues take highest priority
+        if user_data['missed_payments'] >= 2:
+            priorities.append("URGENT_PAYMENT_MANAGEMENT")
+            
+        # PRIORITY 2: High DTI (≥50%) is critical priority
+        elif user_data['dti_ratio'] >= 0.50:
             priorities.append("URGENT_DTI_REDUCTION")
         
         if user_data['credit_score'] < 650:
