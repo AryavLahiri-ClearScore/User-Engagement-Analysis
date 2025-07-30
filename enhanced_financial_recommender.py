@@ -940,16 +940,67 @@ class FinanciallyAwareRecommender:
         return recommendations
 
 if __name__ == "__main__":
-    # Initialize the enhanced recommender
-    recommender = FinanciallyAwareRecommender('joined_user_table.csv')
+    
+    print("🚀 ENHANCED FINANCIALLY-AWARE RECOMMENDATION SYSTEM")
+    print("=" * 70)
+    
+    # Merge CSV files 
+    print("\n🔗 MERGING CSV FILES")
+    print("=" * 50)
+    
+    try:
+        # Load engagement and attributes data
+        print("Loading user_engagement_final.csv...")
+        engagement = pd.read_csv('user_engagement_final.csv')
+        print(f"Engagement data shape: {engagement.shape}")
+        
+        print("Loading user_attributes.csv...")
+        attributes = pd.read_csv('user_attributes.csv')
+        print(f"Attributes data shape: {attributes.shape}")
+        
+        # Join on 'user_id'
+        print("Merging data on 'user_id'...")
+        merged = pd.merge(engagement, attributes, on='user_id', how='inner')
+        print(f"Merged data shape: {merged.shape}")
+        
+        # Sort by user_id
+        print("Sorting by user_id...")
+        df_sorted = merged.sort_values('user_id')
+        
+        print(f"First few user_ids: {df_sorted['user_id'].head().tolist()}")
+        
+        # Save the sorted merged data
+        df_sorted.to_csv('joined_user_table.csv', index=False)
+        print("✅ Merged data saved to 'joined_user_table.csv'")
+        
+        # Initialize the enhanced recommender
+        recommender = FinanciallyAwareRecommender('joined_user_table.csv')
+        
+    except FileNotFoundError as e:
+        print(f"❌ Error: Could not find CSV files - {e}")
+        print("Make sure both 'user_engagement_final.csv' and 'user_attributes.csv' exist")
+        exit(1)
+    except Exception as e:
+        print(f"❌ Error during merging: {e}")
+        exit(1)
     
     # Run enhanced analysis
+    print("\n🔍 RUNNING ENHANCED ANALYSIS...")
+    print("=" * 50)
     enhanced_recommendations = recommender.run_enhanced_analysis()
     
     # Save enhanced recommendations
     enhanced_recommendations.to_csv('enhanced_financial_recommendations.csv', index=False)
-    print(f"\nEnhanced recommendations saved to 'enhanced_financial_recommendations.csv'")
+    print(f"\n✅ Enhanced recommendations saved to 'enhanced_financial_recommendations.csv'")
     
     print("\n" + "=" * 60)
-    print("ENHANCED ANALYSIS COMPLETE!")
-    print("=" * 60) 
+    print("🎉 ENHANCED ANALYSIS COMPLETE!")
+    print("=" * 60)
+    print("\n📊 Generated files:")
+    print("  • enhanced_financial_recommendations.csv - Personalized recommendations")
+    print("  • financial_health_dashboard.png - Financial health visualization") 
+    print("  • financial_metrics_analysis.png - Financial metrics deep dive")
+    print("  • enhanced_engagement_analysis.png - Segment analysis")
+    print("  • financial_clustering_analysis.png - PCA clustering visualization")
+    print("  • engagement_financial_correlation.png - Correlation analysis")
+    print("  • joined_user_table.csv - Merged input data") 
