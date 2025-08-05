@@ -64,16 +64,9 @@ class FinanciallyAwareRecommender:
         
         user_financial['financial_health_score'] = financial_scores
         
-        # ABSOLUTE THRESHOLDS with High DTI taking precedence
+        # ABSOLUTE THRESHOLDS 
         def categorize_financial_health(row):
             score = row['financial_health_score']
-            # dti_ratio = row['dti_ratio']
-            
-            # High DTI takes precedence over other categories
-            # if dti_ratio >= 0.5:
-            #     return "High DTI"   
-            # elif row['missed_payments'] >= 2:
-            #     return "Finn_Diff"
             if score >= 0.8:
                 return "Excellent"      # Strong across all metrics
             elif score >= 0.65:
