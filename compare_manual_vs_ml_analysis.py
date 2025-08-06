@@ -147,6 +147,10 @@ class ManualVsMLComparison:
         
         user_df['manual_enhanced_segment'] = user_df.apply(assign_enhanced_segments, axis=1)
         
+        # Generate manual recommendations
+        manual_recommendations = self.generate_manual_recommendations(user_df)
+        user_df = pd.merge(user_df, manual_recommendations, on='user_id', how='left')
+        
         self.manual_results = user_df
         
         print(f"✅ Calculated manual analysis for {len(user_df)} users")
@@ -154,6 +158,173 @@ class ManualVsMLComparison:
         print(f"🎯 Manual Enhanced Segments: {dict(user_df['manual_enhanced_segment'].value_counts())}")
         
         return user_df
+    
+    def generate_manual_recommendations(self, user_df):
+        """Generate recommendations using manual weights logic"""
+        print("🎯 GENERATING MANUAL RECOMMENDATIONS")
+        print("-" * 50)
+        
+        recommendations = []
+        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
+        
+        for _, user_data in user_df.iterrows():
+            user_id = user_data['user_id']
+            segment = user_data['manual_enhanced_segment']
+            financial_cat = user_data['manual_financial_category']
+            credit_score = user_data['credit_score']
+            dti_ratio = user_data['dti_ratio']
+            has_ccj = user_data['has_ccj']
+            missed_payments = user_data['missed_payments']
+            
+            # Financial priorities
+            financial_priorities = self.get_financial_priorities(user_data)
+            
+            # Urgency flags
+            urgency_flags = self.get_urgency_flags(user_data)
+            
+            # Content recommendations
+            content_scores = self.calculate_content_scores(user_data, content_types)
+            sorted_content = sorted(content_scores.items(), key=lambda x: x[1], reverse=True)
+            
+            # Strategy
+            strategy = self.get_strategy_by_segment(segment, user_data)
+            
+            recommendations.append({
+                'user_id': user_id,
+                'manual_primary_recommendation': sorted_content[0][0],
+                'manual_secondary_recommendation': sorted_content[1][0],
+                'manual_tertiary_recommendation': sorted_content[2][0],
+                'manual_financial_priorities': ', '.join(financial_priorities),
+                'manual_urgency_flags': ', '.join(urgency_flags),
+                'manual_strategy': strategy
+            })
+        
+        return pd.DataFrame(recommendations)
+    
+    def get_financial_priorities(self, user_data):
+        """Identify financial priorities for a user"""
+        priorities = []
+        
+        # PRIORITY 1: Payment issues take highest priority
+        if user_data['missed_payments'] >= 2:
+            priorities.append("URGENT_PAYMENT_MANAGEMENT")
+            
+        # PRIORITY 2: High DTI (≥50%) is critical priority
+        elif user_data['dti_ratio'] >= 0.50:
+            priorities.append("URGENT_DTI_REDUCTION")
+        
+        if user_data['credit_score'] < 650:
+            priorities.append("Credit_Repair")
+        if user_data['dti_ratio'] > 0.6:
+            priorities.append("Debt_Reduction")
+        if user_data['missed_payments'] > 2:
+            priorities.append("Payment_Management")
+        if user_data['has_ccj']:
+            priorities.append("Legal_Financial_Issues")
+        if user_data['total_debt'] > user_data['income'] * 0.8:
+            priorities.append("Debt_Consolidation")
+        if user_data['manual_financial_health_score'] > 0.7 and user_data['income'] > 50000:
+            priorities.append("Wealth_Building")
+        if not user_data['has_mortgage'] and user_data['manual_financial_health_score'] > 0.6:
+            priorities.append("Homeownership_Ready")
+        
+        return priorities if priorities else ["General_Financial_Wellness"]
+    
+    def get_urgency_flags(self, user_data):
+        """Identify urgent financial issues"""
+        flags = []
+        
+        if user_data['dti_ratio'] > 0.8:
+            flags.append("HIGH_DEBT_BURDEN")
+        if user_data['credit_score'] < 500:
+            flags.append("CRITICAL_CREDIT_SCORE")
+        if user_data['missed_payments'] > 4:
+            flags.append("PAYMENT_CRISIS")
+        if user_data['has_ccj']:
+            flags.append("LEGAL_ACTION")
+        
+        return flags if flags else ["STABLE_FINANCIAL_POSITION"]
+    
+    def calculate_content_scores(self, user_data, content_types):
+        """Calculate content scores based on user financial profile"""
+        content_scores = {}
+        missed_payments = user_data['missed_payments']
+        dti_ratio = user_data['dti_ratio']
+        credit_score = user_data['credit_score']
+        has_ccj = user_data['has_ccj']
+        financial_cat = user_data['manual_financial_category']
+        
+        # Base scores (simulate user preferences)
+        base_scores = {content_type: 0.5 for content_type in content_types}
+        
+        for content_type in content_types:
+            base_score = base_scores[content_type]
+            
+            # Apply financial relevance multipliers
+            if missed_payments >= 2:
+                if content_type == 'improve':
+                    base_score *= 2.8
+                elif content_type == 'insights':
+                    base_score *= 2.3
+                elif content_type == 'credit_cards':
+                    base_score *= 0.3
+                elif content_type == 'loans':
+                    base_score *= 0.4
+                elif content_type == 'protect':
+                    base_score *= 1.2
+            elif dti_ratio >= 0.5:
+                if content_type == 'improve':
+                    base_score *= 3.0
+                elif content_type == 'insights':
+                    base_score *= 2.5
+                elif content_type == 'loans':
+                    base_score *= 0.2
+                elif content_type == 'credit_cards':
+                    base_score *= 0.1
+                elif content_type == 'protect':
+                    base_score *= 0.3
+            elif content_type == 'improve' and credit_score < 650:
+                base_score *= 2.0
+            elif content_type == 'protect' and financial_cat == "Excellent":
+                base_score *= 1.5
+            elif content_type == 'loans' and dti_ratio > 0.6:
+                base_score *= 0.5
+            elif content_type == 'credit_cards' and has_ccj:
+                base_score *= 0.3
+            elif content_type == 'drivescore' and financial_cat == "Poor":
+                base_score *= 1.8
+            elif content_type == 'insights' and missed_payments > 2:
+                base_score *= 1.7
+            
+            content_scores[content_type] = base_score
+        
+        return content_scores
+    
+    def get_strategy_by_segment(self, segment, user_data):
+        """Get tailored strategy based on enhanced segment"""
+        strategies = {
+            "Debt_Management_Priority": f"🚨 CRITICAL: DTI {user_data['dti_ratio']:.1%} - URGENT debt reduction required. Focus on debt consolidation, payment strategies, budgeting, and avoid all new debt. Immediate action needed.",
+            
+            "Payment_Recovery_Priority": f"🚨 PAYMENT ISSUES: {user_data['missed_payments']} missed payments detected - URGENT payment management required. Focus on payment scheduling, budgeting, automatic payments, and credit repair strategies. Address payment history immediately.",
+            
+            "Premium_Engaged": f"Offer premium wealth management and investment content. Focus on portfolio optimization and advanced financial strategies. Credit score: {user_data['credit_score']}.",
+            
+            "Growth_Focused": f"Provide growth-oriented financial content with moderate complexity. Focus on building wealth and improving financial position. Current DTI: {user_data['dti_ratio']:.2f}.",
+            
+            "Recovery_Engaged": f"Deliver financial recovery content with high engagement. Focus on debt management and credit repair while maintaining engagement. Priority: Credit improvement from {user_data['credit_score']}.",
+            
+            "Premium_Moderate": f"Offer premium content with clear value propositions. Balance wealth building with practical financial advice. Leverage high financial health score: {user_data['manual_financial_health_score']:.2f}.",
+            
+            "Mainstream": f"Provide balanced financial content for users with decent financial health. Focus on practical advice and gradual improvement. Build on solid financial foundation.",
+            
+            "Recovery_Moderate": f"Deliver accessible financial recovery content. Simplify complex concepts and focus on immediate actionable steps. Address DTI ratio: {user_data['dti_ratio']:.2f}.",
+            
+            "Financial_Priority": f"Urgent: Focus on critical financial issues first. Provide crisis management content and immediate help resources. Address multiple risk factors.",
+            
+            "Activation_Needed": f"Basic financial education and engagement building. Start with simple concepts and gradually increase complexity. Build financial awareness."
+        }
+        
+        return strategies.get(segment, "Provide general financial guidance based on user profile.")
     
     def run_ml_analysis(self):
         """Run ML analysis using FullyMLFinancialRecommender"""
@@ -169,11 +340,58 @@ class ManualVsMLComparison:
         # Get the results
         self.ml_results = ml_recommender.df.copy()
         
+        # Generate ML-style recommendations for comparison
+        ml_recommendations = self.generate_ml_recommendations(self.ml_results)
+        self.ml_results = pd.merge(self.ml_results, ml_recommendations, on='user_id', how='left')
+        
         print(f"✅ Completed ML analysis for {len(self.ml_results)} users")
         print(f"📊 ML Financial Categories: {dict(self.ml_results['ml_financial_category'].value_counts())}")
         print(f"🎯 ML Enhanced Segments: {dict(self.ml_results['ml_enhanced_segment'].value_counts())}")
         
         return self.ml_results
+    
+    def generate_ml_recommendations(self, ml_df):
+        """Generate recommendations using ML-optimized approach"""
+        print("🤖 GENERATING ML-OPTIMIZED RECOMMENDATIONS")
+        print("-" * 50)
+        
+        recommendations = []
+        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
+        
+        for _, user_data in ml_df.iterrows():
+            user_id = user_data['user_id']
+            segment = user_data['ml_enhanced_segment']
+            financial_cat = user_data['ml_financial_category']
+            
+            # Use same logic but with ML-calculated scores
+            user_data_ml = user_data.copy()
+            user_data_ml['manual_financial_health_score'] = user_data['ml_financial_health_score']
+            user_data_ml['manual_financial_category'] = user_data['ml_financial_category']
+            
+            # Financial priorities (based on ML scores)
+            financial_priorities = self.get_financial_priorities(user_data_ml)
+            
+            # Urgency flags
+            urgency_flags = self.get_urgency_flags(user_data_ml)
+            
+            # Content recommendations (using ML-calculated financial health)
+            content_scores = self.calculate_content_scores(user_data_ml, content_types)
+            sorted_content = sorted(content_scores.items(), key=lambda x: x[1], reverse=True)
+            
+            # Strategy (based on ML segment)
+            strategy = self.get_strategy_by_segment(segment, user_data_ml)
+            
+            recommendations.append({
+                'user_id': user_id,
+                'ml_primary_recommendation': sorted_content[0][0],
+                'ml_secondary_recommendation': sorted_content[1][0],
+                'ml_tertiary_recommendation': sorted_content[2][0],
+                'ml_financial_priorities': ', '.join(financial_priorities),
+                'ml_urgency_flags': ', '.join(urgency_flags),
+                'ml_strategy': strategy
+            })
+        
+        return pd.DataFrame(recommendations)
     
     def create_comparison_visualizations(self):
         """Create comprehensive comparison visualizations"""
@@ -425,6 +643,527 @@ class ManualVsMLComparison:
         
         print("✅ Created detailed segment analysis: detailed_segment_analysis.png")
     
+    def create_correlation_analysis(self):
+        """Create correlation analysis like enhanced_financial_recommender_with_ml_engagement_only.py"""
+        print("\n🔗 CREATING CORRELATION ANALYSIS")
+        print("=" * 60)
+        
+        # Create figure with subplots for correlation analysis
+        fig = plt.figure(figsize=(20, 12))
+        
+        # 1. Manual weights correlation matrix
+        plt.subplot(2, 3, 1)
+        manual_corr_features = ['manual_financial_health_score', 'manual_engagement_score', 
+                               'credit_score', 'dti_ratio', 'income', 'missed_payments',
+                               'click_rate', 'avg_time_viewed', 'total_interactions']
+        manual_corr_data = self.manual_results[manual_corr_features]
+        manual_correlation = manual_corr_data.corr()
+        
+        sns.heatmap(manual_correlation, annot=True, cmap='RdYlBu_r', center=0, 
+                   square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
+        plt.title('Manual Weights Correlation Matrix', fontsize=12, fontweight='bold')
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        
+        # 2. ML weights correlation matrix
+        plt.subplot(2, 3, 2)
+        ml_corr_features = ['ml_financial_health_score', 'ml_engagement_score', 
+                           'credit_score', 'dti_ratio', 'income', 'missed_payments',
+                           'click_rate', 'avg_time_viewed', 'total_interactions']
+        ml_corr_data = self.ml_results[ml_corr_features]
+        ml_correlation = ml_corr_data.corr()
+        
+        sns.heatmap(ml_correlation, annot=True, cmap='RdYlBu_r', center=0, 
+                   square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
+        plt.title('ML Weights Correlation Matrix', fontsize=12, fontweight='bold')
+        plt.xticks(rotation=45, ha='right')
+        plt.yticks(rotation=0)
+        
+        # 3. Engagement vs Financial scatter plot (Manual)
+        plt.subplot(2, 3, 3)
+        plt.scatter(self.manual_results['manual_engagement_score'], 
+                   self.manual_results['manual_financial_health_score'],
+                   c=self.manual_results['manual_financial_category'].astype('category').cat.codes,
+                   cmap='viridis', alpha=0.6, s=50)
+        plt.xlabel('Manual Engagement Score')
+        plt.ylabel('Manual Financial Health Score')
+        plt.title('Manual: Engagement vs Financial Health', fontsize=12, fontweight='bold')
+        plt.colorbar(label='Financial Category')
+        
+        # 4. Engagement vs Financial scatter plot (ML)
+        plt.subplot(2, 3, 4)
+        plt.scatter(self.ml_results['ml_engagement_score'], 
+                   self.ml_results['ml_financial_health_score'],
+                   c=self.ml_results['ml_financial_category'].astype('category').cat.codes,
+                   cmap='viridis', alpha=0.6, s=50)
+        plt.xlabel('ML Engagement Score')
+        plt.ylabel('ML Financial Health Score')
+        plt.title('ML: Engagement vs Financial Health', fontsize=12, fontweight='bold')
+        plt.colorbar(label='Financial Category')
+        
+        # 5. Feature importance comparison
+        plt.subplot(2, 3, 5)
+        
+        # Manual weights (normalized)
+        manual_weights = {
+            'Credit Score': 0.30,
+            'DTI Ratio': 0.25,
+            'Missed Payments': 0.15,
+            'Income': 0.15,
+            'CCJ Status': 0.10,
+            'Assets': 0.05
+        }
+        
+        # Calculate correlation-based "importance" for ML
+        ml_importance = {}
+        for feature in ['credit_score', 'dti_ratio', 'missed_payments', 'income']:
+            correlation = abs(ml_correlation.loc['ml_financial_health_score', feature])
+            ml_importance[feature.replace('_', ' ').title()] = correlation
+        
+        # Add placeholder values for missing features
+        ml_importance['CCJ Status'] = abs(ml_correlation.loc['ml_financial_health_score', 'ml_financial_health_score']) * 0.1
+        ml_importance['Assets'] = abs(ml_correlation.loc['ml_financial_health_score', 'ml_financial_health_score']) * 0.05
+        
+        # Normalize ML importance
+        total_ml = sum(ml_importance.values())
+        ml_importance = {k: v/total_ml for k, v in ml_importance.items()}
+        
+        features = list(manual_weights.keys())
+        manual_vals = [manual_weights[f] for f in features]
+        ml_vals = [ml_importance.get(f, 0) for f in features]
+        
+        x = np.arange(len(features))
+        width = 0.35
+        
+        plt.bar(x - width/2, manual_vals, width, label='Manual', color='skyblue', alpha=0.8)
+        plt.bar(x + width/2, ml_vals, width, label='ML', color='lightcoral', alpha=0.8)
+        
+        plt.xlabel('Financial Features')
+        plt.ylabel('Importance Weight')
+        plt.title('Feature Importance: Manual vs ML', fontsize=12, fontweight='bold')
+        plt.xticks(x, [f[:8] + '...' if len(f) > 8 else f for f in features], rotation=45)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # 6. Clustering visualization (if possible)
+        plt.subplot(2, 3, 6)
+        
+        # Use PCA for 2D visualization
+        from sklearn.decomposition import PCA
+        from sklearn.preprocessing import StandardScaler
+        
+        # Combine features for clustering visualization
+        cluster_features = ['manual_financial_health_score', 'manual_engagement_score',
+                           'credit_score', 'dti_ratio', 'income']
+        cluster_data = self.manual_results[cluster_features].fillna(0)
+        
+        # Scale and apply PCA
+        scaler = StandardScaler()
+        scaled_data = scaler.fit_transform(cluster_data)
+        pca = PCA(n_components=2)
+        pca_data = pca.fit_transform(scaled_data)
+        
+        # Color by financial category
+        categories = self.manual_results['manual_financial_category']
+        category_colors = {'Poor': 'red', 'Fair': 'orange', 'Good': 'lightblue', 'Excellent': 'green'}
+        colors = [category_colors.get(cat, 'gray') for cat in categories]
+        
+        plt.scatter(pca_data[:, 0], pca_data[:, 1], c=colors, alpha=0.6, s=50)
+        plt.xlabel(f'PC1 ({pca.explained_variance_ratio_[0]:.1%} variance)')
+        plt.ylabel(f'PC2 ({pca.explained_variance_ratio_[1]:.1%} variance)')
+        plt.title('PCA Clustering by Financial Category', fontsize=12, fontweight='bold')
+        
+        # Add legend
+        for category, color in category_colors.items():
+            plt.scatter([], [], c=color, label=category, s=50)
+        plt.legend()
+        
+        plt.tight_layout()
+        plt.savefig('correlation_and_clustering_analysis.png', dpi=300, bbox_inches='tight')
+        plt.show()
+        
+        print("✅ Created correlation and clustering analysis: correlation_and_clustering_analysis.png")
+    
+    def create_financial_dashboard(self):
+        """Create comprehensive financial dashboard similar to enhanced_financial_recommender_with_ml_engagement_only.py"""
+        print("\n📊 CREATING FINANCIAL DASHBOARD")
+        print("=" * 60)
+        
+        # Create dashboard figure
+        fig = plt.figure(figsize=(20, 16))
+        
+        # 1. Financial Health Score Distribution by Category (Manual)
+        plt.subplot(3, 4, 1)
+        for category in ['Poor', 'Fair', 'Good', 'Excellent']:
+            data = self.manual_results[self.manual_results['manual_financial_category'] == category]['manual_financial_health_score']
+            if len(data) > 0:
+                plt.hist(data, alpha=0.7, label=category, bins=15)
+        plt.xlabel('Financial Health Score')
+        plt.ylabel('Number of Users')
+        plt.title('Manual: Score Distribution by Category', fontsize=11, fontweight='bold')
+        plt.legend()
+        
+        # 2. Financial Health Score Distribution by Category (ML)
+        plt.subplot(3, 4, 2)
+        for category in ['Poor', 'Fair', 'Good', 'Excellent']:
+            data = self.ml_results[self.ml_results['ml_financial_category'] == category]['ml_financial_health_score']
+            if len(data) > 0:
+                plt.hist(data, alpha=0.7, label=category, bins=15)
+        plt.xlabel('Financial Health Score')
+        plt.ylabel('Number of Users')
+        plt.title('ML: Score Distribution by Category', fontsize=11, fontweight='bold')
+        plt.legend()
+        
+        # 3. Income vs Credit Score (Manual coloring)
+        plt.subplot(3, 4, 3)
+        plt.scatter(self.manual_results['income'], self.manual_results['credit_score'],
+                   c=self.manual_results['manual_financial_category'].astype('category').cat.codes,
+                   cmap='viridis', alpha=0.6, s=30)
+        plt.xlabel('Income')
+        plt.ylabel('Credit Score')
+        plt.title('Manual: Income vs Credit Score', fontsize=11, fontweight='bold')
+        plt.colorbar(label='Financial Category')
+        
+        # 4. Income vs Credit Score (ML coloring)
+        plt.subplot(3, 4, 4)
+        plt.scatter(self.ml_results['income'], self.ml_results['credit_score'],
+                   c=self.ml_results['ml_financial_category'].astype('category').cat.codes,
+                   cmap='viridis', alpha=0.6, s=30)
+        plt.xlabel('Income')
+        plt.ylabel('Credit Score')
+        plt.title('ML: Income vs Credit Score', fontsize=11, fontweight='bold')
+        plt.colorbar(label='Financial Category')
+        
+        # 5. DTI Ratio Distribution by Category (Manual)
+        plt.subplot(3, 4, 5)
+        manual_categories = self.manual_results['manual_financial_category'].unique()
+        dti_data = [self.manual_results[self.manual_results['manual_financial_category'] == cat]['dti_ratio'].values 
+                    for cat in manual_categories]
+        plt.boxplot(dti_data, labels=[cat[:4] for cat in manual_categories])
+        plt.ylabel('DTI Ratio')
+        plt.title('Manual: DTI by Category', fontsize=11, fontweight='bold')
+        plt.xticks(rotation=45)
+        
+        # 6. DTI Ratio Distribution by Category (ML)
+        plt.subplot(3, 4, 6)
+        ml_categories = self.ml_results['ml_financial_category'].unique()
+        dti_data_ml = [self.ml_results[self.ml_results['ml_financial_category'] == cat]['dti_ratio'].values 
+                       for cat in ml_categories]
+        plt.boxplot(dti_data_ml, labels=[cat[:4] for cat in ml_categories])
+        plt.ylabel('DTI Ratio')
+        plt.title('ML: DTI by Category', fontsize=11, fontweight='bold')
+        plt.xticks(rotation=45)
+        
+        # 7. Engagement Score vs Financial Score (Manual)
+        plt.subplot(3, 4, 7)
+        plt.hexbin(self.manual_results['manual_engagement_score'], 
+                  self.manual_results['manual_financial_health_score'],
+                  gridsize=20, cmap='Blues')
+        plt.xlabel('Engagement Score')
+        plt.ylabel('Financial Health Score')
+        plt.title('Manual: Engagement vs Financial\n(Hexbin Density)', fontsize=11, fontweight='bold')
+        plt.colorbar(label='User Density')
+        
+        # 8. Engagement Score vs Financial Score (ML)
+        plt.subplot(3, 4, 8)
+        plt.hexbin(self.ml_results['ml_engagement_score'], 
+                  self.ml_results['ml_financial_health_score'],
+                  gridsize=20, cmap='Reds')
+        plt.xlabel('Engagement Score')
+        plt.ylabel('Financial Health Score')
+        plt.title('ML: Engagement vs Financial\n(Hexbin Density)', fontsize=11, fontweight='bold')
+        plt.colorbar(label='User Density')
+        
+        # 9. Missed Payments Distribution
+        plt.subplot(3, 4, 9)
+        manual_missed = self.manual_results['missed_payments'].value_counts().sort_index()
+        ml_missed = self.ml_results['missed_payments'].value_counts().sort_index()
+        
+        x = np.arange(len(manual_missed))
+        width = 0.35
+        
+        plt.bar(x - width/2, manual_missed.values, width, label='Manual', alpha=0.8)
+        plt.bar(x + width/2, ml_missed.values, width, label='ML', alpha=0.8)
+        plt.xlabel('Missed Payments')
+        plt.ylabel('Number of Users')
+        plt.title('Missed Payments Distribution', fontsize=11, fontweight='bold')
+        plt.xticks(x, manual_missed.index)
+        plt.legend()
+        
+        # 10. Click Rate vs Time Viewed
+        plt.subplot(3, 4, 10)
+        plt.scatter(self.manual_results['click_rate'], self.manual_results['avg_time_viewed'],
+                   c=self.manual_results['manual_engagement_score'], cmap='plasma', alpha=0.6, s=30)
+        plt.xlabel('Click Rate')
+        plt.ylabel('Avg Time Viewed')
+        plt.title('Manual: Click Rate vs Time', fontsize=11, fontweight='bold')
+        plt.colorbar(label='Engagement Score')
+        
+        # 11. Financial Category vs Enhanced Segment (Manual)
+        plt.subplot(3, 4, 11)
+        segment_category_data = pd.crosstab(self.manual_results['manual_enhanced_segment'], 
+                                          self.manual_results['manual_financial_category'])
+        sns.heatmap(segment_category_data, annot=True, fmt='d', cmap='YlOrRd')
+        plt.title('Manual: Segment vs Category', fontsize=11, fontweight='bold')
+        plt.xticks(rotation=45)
+        plt.yticks(rotation=0)
+        
+        # 12. Financial Category vs Enhanced Segment (ML)
+        plt.subplot(3, 4, 12)
+        segment_category_data_ml = pd.crosstab(self.ml_results['ml_enhanced_segment'], 
+                                             self.ml_results['ml_financial_category'])
+        sns.heatmap(segment_category_data_ml, annot=True, fmt='d', cmap='YlOrRd')
+        plt.title('ML: Segment vs Category', fontsize=11, fontweight='bold')
+        plt.xticks(rotation=45)
+        plt.yticks(rotation=0)
+        
+        plt.tight_layout()
+        plt.savefig('comprehensive_financial_dashboard.png', dpi=300, bbox_inches='tight')
+        plt.show()
+        
+        print("✅ Created comprehensive financial dashboard: comprehensive_financial_dashboard.png")
+    
+    def create_recommendations_analysis(self):
+        """Create detailed recommendations analysis comparing manual vs ML"""
+        print("\n🎯 CREATING RECOMMENDATIONS ANALYSIS")
+        print("=" * 60)
+        
+        # Create recommendations comparison figure
+        fig = plt.figure(figsize=(20, 16))
+        
+        # 1. Primary recommendation comparison
+        plt.subplot(3, 3, 1)
+        manual_primary = self.manual_results['manual_primary_recommendation'].value_counts()
+        ml_primary = self.ml_results['ml_primary_recommendation'].value_counts()
+        
+        # Combine all recommendation types
+        all_recs = set(list(manual_primary.index) + list(ml_primary.index))
+        manual_counts = [manual_primary.get(rec, 0) for rec in all_recs]
+        ml_counts = [ml_primary.get(rec, 0) for rec in all_recs]
+        
+        x = np.arange(len(all_recs))
+        width = 0.35
+        
+        plt.bar(x - width/2, manual_counts, width, label='Manual', alpha=0.8, color='skyblue')
+        plt.bar(x + width/2, ml_counts, width, label='ML', alpha=0.8, color='lightcoral')
+        plt.xlabel('Content Type')
+        plt.ylabel('Number of Users')
+        plt.title('Primary Recommendations: Manual vs ML', fontsize=12, fontweight='bold')
+        plt.xticks(x, list(all_recs), rotation=45)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # 2. Financial priorities comparison
+        plt.subplot(3, 3, 2)
+        
+        # Extract and count unique priorities
+        manual_priorities = []
+        for priorities_str in self.manual_results['manual_financial_priorities']:
+            if pd.notna(priorities_str):
+                manual_priorities.extend([p.strip() for p in priorities_str.split(',')])
+        
+        ml_priorities = []
+        for priorities_str in self.ml_results['ml_financial_priorities']:
+            if pd.notna(priorities_str):
+                ml_priorities.extend([p.strip() for p in priorities_str.split(',')])
+        
+        manual_priority_counts = pd.Series(manual_priorities).value_counts()
+        ml_priority_counts = pd.Series(ml_priorities).value_counts()
+        
+        # Get top 6 priorities for visualization
+        top_priorities = set(list(manual_priority_counts.head(6).index) + list(ml_priority_counts.head(6).index))
+        
+        manual_priority_vals = [manual_priority_counts.get(p, 0) for p in top_priorities]
+        ml_priority_vals = [ml_priority_counts.get(p, 0) for p in top_priorities]
+        
+        x2 = np.arange(len(top_priorities))
+        plt.bar(x2 - width/2, manual_priority_vals, width, label='Manual', alpha=0.8, color='lightgreen')
+        plt.bar(x2 + width/2, ml_priority_vals, width, label='ML', alpha=0.8, color='orange')
+        plt.xlabel('Financial Priority')
+        plt.ylabel('Number of Users')
+        plt.title('Financial Priorities: Manual vs ML', fontsize=12, fontweight='bold')
+        plt.xticks(x2, [p[:12] + '...' if len(p) > 12 else p for p in top_priorities], rotation=45)
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        
+        # 3. Urgency flags comparison
+        plt.subplot(3, 3, 3)
+        
+        # Extract and count urgency flags
+        manual_flags = []
+        for flags_str in self.manual_results['manual_urgency_flags']:
+            if pd.notna(flags_str):
+                manual_flags.extend([f.strip() for f in flags_str.split(',')])
+        
+        ml_flags = []
+        for flags_str in self.ml_results['ml_urgency_flags']:
+            if pd.notna(flags_str):
+                ml_flags.extend([f.strip() for f in flags_str.split(',')])
+        
+        manual_flag_counts = pd.Series(manual_flags).value_counts()
+        ml_flag_counts = pd.Series(ml_flags).value_counts()
+        
+        # Pie chart for urgency flags
+        plt.pie(manual_flag_counts.values, labels=manual_flag_counts.index, autopct='%1.1f%%', startangle=90)
+        plt.title('Manual Urgency Flags Distribution', fontsize=12, fontweight='bold')
+        
+        plt.subplot(3, 3, 4)
+        plt.pie(ml_flag_counts.values, labels=ml_flag_counts.index, autopct='%1.1f%%', startangle=90)
+        plt.title('ML Urgency Flags Distribution', fontsize=12, fontweight='bold')
+        
+        # 4. Recommendation agreement analysis
+        plt.subplot(3, 3, 5)
+        
+        # Calculate agreement rates
+        comparison_df = pd.merge(
+            self.manual_results[['user_id', 'manual_primary_recommendation', 'manual_secondary_recommendation', 'manual_tertiary_recommendation']],
+            self.ml_results[['user_id', 'ml_primary_recommendation', 'ml_secondary_recommendation', 'ml_tertiary_recommendation']],
+            on='user_id'
+        )
+        
+        primary_agreement = (comparison_df['manual_primary_recommendation'] == comparison_df['ml_primary_recommendation']).sum()
+        secondary_agreement = (comparison_df['manual_secondary_recommendation'] == comparison_df['ml_secondary_recommendation']).sum()
+        tertiary_agreement = (comparison_df['manual_tertiary_recommendation'] == comparison_df['ml_tertiary_recommendation']).sum()
+        
+        agreement_rates = [primary_agreement, secondary_agreement, tertiary_agreement]
+        total_users = len(comparison_df)
+        agreement_percentages = [rate/total_users*100 for rate in agreement_rates]
+        
+        plt.bar(['Primary', 'Secondary', 'Tertiary'], agreement_percentages, color=['red', 'orange', 'yellow'], alpha=0.7)
+        plt.ylabel('Agreement Rate (%)')
+        plt.title('Recommendation Agreement: Manual vs ML', fontsize=12, fontweight='bold')
+        plt.ylim(0, 100)
+        for i, v in enumerate(agreement_percentages):
+            plt.text(i, v + 2, f'{v:.1f}%', ha='center', fontweight='bold')
+        plt.grid(True, alpha=0.3)
+        
+        # 5. Content type heatmap
+        plt.subplot(3, 3, 6)
+        
+        # Create transition matrix for primary recommendations
+        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
+        transition_matrix = []
+        
+        for manual_content in content_types:
+            row = []
+            for ml_content in content_types:
+                count = len(comparison_df[
+                    (comparison_df['manual_primary_recommendation'] == manual_content) & 
+                    (comparison_df['ml_primary_recommendation'] == ml_content)
+                ])
+                row.append(count)
+            transition_matrix.append(row)
+        
+        sns.heatmap(transition_matrix, annot=True, fmt='d', cmap='Blues',
+                   xticklabels=content_types, yticklabels=content_types)
+        plt.title('Content Recommendation Transitions\n(Manual → ML)', fontsize=12, fontweight='bold')
+        plt.xlabel('ML Recommendations')
+        plt.ylabel('Manual Recommendations')
+        
+        # 6-9. Strategy comparison and sample recommendations
+        plt.subplot(3, 3, 7)
+        plt.axis('off')
+        
+        # Strategy length comparison
+        manual_strategy_lengths = [len(str(strategy)) for strategy in self.manual_results['manual_strategy']]
+        ml_strategy_lengths = [len(str(strategy)) for strategy in self.ml_results['ml_strategy']]
+        
+        strategy_text = f"""
+        STRATEGY ANALYSIS
+        ═══════════════════
+        
+        📝 STRATEGY CHARACTERISTICS:
+        Manual avg length: {np.mean(manual_strategy_lengths):.0f} chars
+        ML avg length:     {np.mean(ml_strategy_lengths):.0f} chars
+        
+        🎯 RECOMMENDATION INSIGHTS:
+        Primary agreement:   {agreement_percentages[0]:.1f}%
+        Secondary agreement: {agreement_percentages[1]:.1f}%
+        Tertiary agreement:  {agreement_percentages[2]:.1f}%
+        
+        📊 TOP MANUAL PRIORITIES:
+        {chr(10).join([f"• {p}: {c}" for p, c in manual_priority_counts.head(3).items()])}
+        
+        🤖 TOP ML PRIORITIES:
+        {chr(10).join([f"• {p}: {c}" for p, c in ml_priority_counts.head(3).items()])}
+        
+        💡 KEY DIFFERENCES:
+        • ML may identify different risk patterns
+        • Content prioritization may shift
+        • Financial urgency assessment varies
+        """
+        
+        plt.text(0.05, 0.95, strategy_text, transform=plt.gca().transAxes, fontsize=10,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+        
+        # 8. Sample user comparison
+        plt.subplot(3, 3, 8)
+        plt.axis('off')
+        
+        # Show a sample of user recommendations
+        sample_comparison = comparison_df.head(5)
+        sample_text = "SAMPLE USER COMPARISONS\n" + "═" * 25 + "\n\n"
+        
+        for _, user in sample_comparison.iterrows():
+            user_id = user['user_id']
+            manual_rec = user['manual_primary_recommendation']
+            ml_rec = user['ml_primary_recommendation']
+            match = "✓" if manual_rec == ml_rec else "✗"
+            
+            sample_text += f"{user_id}: {match}\n"
+            sample_text += f"  Manual: {manual_rec}\n"
+            sample_text += f"  ML:     {ml_rec}\n\n"
+        
+        plt.text(0.05, 0.95, sample_text, transform=plt.gca().transAxes, fontsize=9,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
+        
+        # 9. Overall summary
+        plt.subplot(3, 3, 9)
+        plt.axis('off')
+        
+        # Calculate overall differences
+        total_agreements = sum(agreement_rates)
+        total_possible = total_users * 3
+        overall_agreement = (total_agreements / total_possible) * 100
+        
+        summary_text = f"""
+        OVERALL SUMMARY
+        ═══════════════
+        
+        📈 AGREEMENT METRICS:
+        Overall recommendation agreement: {overall_agreement:.1f}%
+        
+        🎯 CONTENT DISTRIBUTION:
+        Manual top content: {manual_primary.index[0]}
+        ML top content:     {ml_primary.index[0]}
+        
+        ⚠️ URGENCY PATTERNS:
+        Manual critical users: {manual_flag_counts.get('CRITICAL_CREDIT_SCORE', 0) + manual_flag_counts.get('PAYMENT_CRISIS', 0)}
+        ML critical users:     {ml_flag_counts.get('CRITICAL_CREDIT_SCORE', 0) + ml_flag_counts.get('PAYMENT_CRISIS', 0)}
+        
+        🔍 KEY INSIGHT:
+        {"High agreement - methods are consistent" if overall_agreement > 70 else "Low agreement - ML found different patterns"}
+        
+        💼 BUSINESS IMPACT:
+        • Different content prioritization
+        • Varied financial risk assessment
+        • Potentially different user journeys
+        """
+        
+        plt.text(0.05, 0.95, summary_text, transform=plt.gca().transAxes, fontsize=10,
+                verticalalignment='top', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.8))
+        
+        plt.tight_layout()
+        plt.savefig('recommendations_comparison_analysis.png', dpi=300, bbox_inches='tight')
+        plt.show()
+        
+        print("✅ Created recommendations comparison analysis: recommendations_comparison_analysis.png")
+        
+        return comparison_df
+    
     def generate_csv_files(self, comparison_df):
         """Generate CSV files for manual and ML results"""
         print("\n💾 GENERATING CSV FILES")
@@ -434,10 +1173,14 @@ class ManualVsMLComparison:
         manual_csv = self.manual_results[['user_id', 'manual_financial_health_score', 'manual_engagement_score',
                                         'manual_financial_category', 'manual_enhanced_segment',
                                         'credit_score', 'dti_ratio', 'income', 'missed_payments',
-                                        'click_rate', 'avg_time_viewed', 'total_interactions']].copy()
+                                        'click_rate', 'avg_time_viewed', 'total_interactions',
+                                        'manual_primary_recommendation', 'manual_secondary_recommendation', 'manual_tertiary_recommendation',
+                                        'manual_financial_priorities', 'manual_urgency_flags', 'manual_strategy']].copy()
         manual_csv.columns = ['user_id', 'financial_health_score', 'engagement_score', 'financial_category', 
                              'enhanced_segment', 'credit_score', 'dti_ratio', 'income', 'missed_payments',
-                             'click_rate', 'avg_time_viewed', 'total_interactions']
+                             'click_rate', 'avg_time_viewed', 'total_interactions',
+                             'primary_recommendation', 'secondary_recommendation', 'tertiary_recommendation',
+                             'financial_priorities', 'urgency_flags', 'strategy']
         manual_csv['weight_method'] = 'Manual'
         manual_csv.to_csv('manual_weights_results.csv', index=False)
         
@@ -445,10 +1188,14 @@ class ManualVsMLComparison:
         ml_csv = self.ml_results[['user_id', 'ml_financial_health_score', 'ml_engagement_score',
                                 'ml_financial_category', 'ml_enhanced_segment',
                                 'credit_score', 'dti_ratio', 'income', 'missed_payments',
-                                'click_rate', 'avg_time_viewed', 'total_interactions']].copy()
+                                'click_rate', 'avg_time_viewed', 'total_interactions',
+                                'ml_primary_recommendation', 'ml_secondary_recommendation', 'ml_tertiary_recommendation',
+                                'ml_financial_priorities', 'ml_urgency_flags', 'ml_strategy']].copy()
         ml_csv.columns = ['user_id', 'financial_health_score', 'engagement_score', 'financial_category', 
                          'enhanced_segment', 'credit_score', 'dti_ratio', 'income', 'missed_payments',
-                         'click_rate', 'avg_time_viewed', 'total_interactions']
+                         'click_rate', 'avg_time_viewed', 'total_interactions',
+                         'primary_recommendation', 'secondary_recommendation', 'tertiary_recommendation',
+                         'financial_priorities', 'urgency_flags', 'strategy']
         ml_csv['weight_method'] = 'ML_Learned'
         ml_csv.to_csv('ml_weights_results.csv', index=False)
         
@@ -486,7 +1233,16 @@ class ManualVsMLComparison:
         # Step 4: Create detailed segment analysis
         self.create_detailed_segment_analysis(comparison_df)
         
-        # Step 5: Generate CSV files
+        # Step 5: Create correlation analysis
+        self.create_correlation_analysis()
+        
+        # Step 6: Create comprehensive financial dashboard
+        self.create_financial_dashboard()
+        
+        # Step 7: Create recommendations analysis
+        recommendations_comparison = self.create_recommendations_analysis()
+        
+        # Step 8: Generate CSV files
         manual_csv, ml_csv, comparison_csv = self.generate_csv_files(comparison_df)
         
         print("\n🎉 ANALYSIS COMPLETE!")
@@ -495,10 +1251,16 @@ class ManualVsMLComparison:
         print("✅ ML weight optimization completed")
         print("✅ Comprehensive visualizations created")
         print("✅ Detailed segment analysis created")
+        print("✅ Correlation analysis created")
+        print("✅ Financial dashboard created")
+        print("✅ Recommendations analysis created")
         print("✅ CSV files generated")
         print("\n📁 FILES CREATED:")
         print("   🖼️ manual_vs_ml_comprehensive_comparison.png")
         print("   🖼️ detailed_segment_analysis.png")
+        print("   🖼️ correlation_and_clustering_analysis.png")
+        print("   🖼️ comprehensive_financial_dashboard.png")
+        print("   🖼️ recommendations_comparison_analysis.png")
         print("   📄 manual_weights_results.csv")
         print("   📄 ml_weights_results.csv") 
         print("   📄 manual_vs_ml_comparison.csv")
