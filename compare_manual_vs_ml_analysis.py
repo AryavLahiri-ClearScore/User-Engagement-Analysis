@@ -1,30 +1,271 @@
 """
 Comprehensive Manual vs ML Comparison Analysis
 Creates visualizations and CSV files comparing manual weights vs ML-learned weights
+Now uses supervised learning for generating recommendations
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, accuracy_score
 from fully_ml_financial_recommender import FullyMLFinancialRecommender
 import warnings
 warnings.filterwarnings('ignore')
 
 class ManualVsMLComparison:
-    """Compare manual weight system vs ML-learned weights"""
+    """Compare manual weight system vs ML-learned weights with supervised learning recommendations"""
     
     def __init__(self, csv_file):
         self.csv_file = csv_file
         self.df = pd.read_csv(csv_file)
         self.manual_results = None
         self.ml_results = None
+        self.ml_recommendation_model = None
+        self.ml_priority_model = None
+        self.ml_urgency_model = None
+        self.content_encoders = {}
         
         # Setup plotting style
         plt.style.use('default')
         sns.set_palette("husl")
         
+    def create_synthetic_training_data(self):
+        """Create synthetic training data for supervised learning models"""
+        print("🤖 CREATING SYNTHETIC TRAINING DATA FOR ML MODELS")
+        print("-" * 60)
+        
+        # Create user-level data first
+        user_financial = self.df.groupby('user_id').agg({
+            'credit_score': 'first',
+            'dti_ratio': 'first', 
+            'income': 'first',
+            'total_debt': 'first',
+            'missed_payments': 'first',
+            'has_ccj': 'first',
+            'has_mortgage': 'first',
+            'has_car': 'first'
+        }).reset_index()
+        
+        # Calculate synthetic features
+        np.random.seed(42)
+        n_users = len(user_financial)
+        
+        # Generate synthetic recommendation data based on financial patterns
+        synthetic_data = []
+        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
+        
+        for _, user in user_financial.iterrows():
+            credit_score = user['credit_score']
+            dti_ratio = user['dti_ratio']
+            missed_payments = user['missed_payments']
+            income = user['income']
+            has_ccj = user['has_ccj']
+            
+            # Calculate financial health score
+            credit_comp = min(credit_score / 1000, 1.0)
+            dti_comp = max(0, 1 - dti_ratio)
+            missed_comp = max(0, 1 - (missed_payments / 10))
+            income_comp = min(income / 100000, 1.0)
+            ccj_comp = 0.0 if has_ccj else 1.0
+            asset_comp = (user['has_mortgage'] * 0.6 + user['has_car'] * 0.4)
+            
+            financial_health = (credit_comp * 0.30 + dti_comp * 0.25 + 
+                              missed_comp * 0.15 + income_comp * 0.15 + 
+                              ccj_comp * 0.10 + asset_comp * 0.05)
+            
+            # Generate synthetic engagement features
+            engagement_base = np.random.beta(2, 3)
+            
+            # Synthetic recommendation logic based on financial patterns
+            if missed_payments >= 2:
+                primary_rec = 'improve'
+                priorities = ['URGENT_PAYMENT_MANAGEMENT', 'Payment_Management']
+                urgency = ['PAYMENT_CRISIS'] if missed_payments > 4 else ['HIGH_DEBT_BURDEN']
+            elif dti_ratio >= 0.5:
+                primary_rec = 'improve'
+                priorities = ['URGENT_DTI_REDUCTION', 'Debt_Reduction'] 
+                urgency = ['HIGH_DEBT_BURDEN']
+            elif credit_score < 650:
+                primary_rec = 'improve'
+                priorities = ['Credit_Repair']
+                urgency = ['CRITICAL_CREDIT_SCORE'] if credit_score < 500 else ['STABLE_FINANCIAL_POSITION']
+            elif financial_health > 0.7:
+                primary_rec = 'protect'
+                priorities = ['Wealth_Building']
+                urgency = ['STABLE_FINANCIAL_POSITION']
+            elif financial_health > 0.5:
+                primary_rec = 'insights' 
+                priorities = ['General_Financial_Wellness']
+                urgency = ['STABLE_FINANCIAL_POSITION']
+            else:
+                primary_rec = 'drivescore'
+                priorities = ['General_Financial_Wellness']
+                urgency = ['STABLE_FINANCIAL_POSITION']
+            
+            # Add some randomness
+            if np.random.random() < 0.15:  # 15% chance to change recommendation
+                primary_rec = np.random.choice(content_types)
+            
+            synthetic_data.append({
+                'user_id': user['user_id'],
+                'credit_score': credit_score,
+                'dti_ratio': dti_ratio,
+                'income': income,
+                'missed_payments': missed_payments,
+                'has_ccj': has_ccj,
+                'financial_health_score': financial_health,
+                'engagement_score': engagement_base,
+                'primary_recommendation': primary_rec,
+                'financial_priorities': ', '.join(priorities[:2]),
+                'urgency_flags': ', '.join(urgency)
+            })
+        
+        training_df = pd.DataFrame(synthetic_data)
+        print(f"✅ Created synthetic training data: {len(training_df)} samples")
+        print(f"📊 Recommendation distribution: {dict(training_df['primary_recommendation'].value_counts())}")
+        
+        return training_df
+    
+    def train_ml_recommendation_models(self, training_data):
+        """Train supervised learning models for recommendations"""
+        print("🔬 TRAINING SUPERVISED LEARNING MODELS")
+        print("-" * 50)
+        
+        # Prepare features for ML
+        feature_columns = ['credit_score', 'dti_ratio', 'income', 'missed_payments', 
+                          'has_ccj', 'financial_health_score', 'engagement_score']
+        X = training_data[feature_columns].fillna(0)
+        
+        # Scale features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        self.feature_scaler = scaler
+        self.feature_columns = feature_columns
+        
+        # 1. Train recommendation model
+        print("   🎯 Training recommendation model...")
+        y_rec = training_data['primary_recommendation']
+        self.recommendation_encoder = LabelEncoder()
+        y_rec_encoded = self.recommendation_encoder.fit_transform(y_rec)
+        
+        # Check class distribution
+        unique_classes, class_counts = np.unique(y_rec_encoded, return_counts=True)
+        print(f"      📊 Class distribution: {dict(zip(self.recommendation_encoder.classes_, class_counts))}")
+        
+        # Use stratification only if all classes have at least 2 samples
+        min_class_count = min(class_counts)
+        use_stratify = min_class_count >= 2
+        
+        if use_stratify:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_scaled, y_rec_encoded, test_size=0.2, random_state=42, stratify=y_rec_encoded
+            )
+        else:
+            print(f"      ⚠️ Smallest class has only {min_class_count} samples, skipping stratification")
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_scaled, y_rec_encoded, test_size=0.2, random_state=42
+            )
+        
+        self.ml_recommendation_model = RandomForestClassifier(
+            n_estimators=100, random_state=42, class_weight='balanced'
+        )
+        self.ml_recommendation_model.fit(X_train, y_train)
+        
+        y_pred = self.ml_recommendation_model.predict(X_test)
+        rec_accuracy = accuracy_score(y_test, y_pred)
+        print(f"      ✅ Recommendation model accuracy: {rec_accuracy:.3f}")
+        
+        # 2. Train financial priorities model
+        print("   💰 Training financial priorities model...")
+        # Create simplified priority categories for classification
+        training_data['priority_category'] = training_data['financial_priorities'].apply(
+            lambda x: 'URGENT' if 'URGENT' in str(x) 
+                     else 'REPAIR' if 'Credit_Repair' in str(x) or 'Debt_Reduction' in str(x)
+                     else 'BUILDING' if 'Wealth_Building' in str(x)
+                     else 'GENERAL'
+        )
+        
+        y_priority = training_data['priority_category']
+        self.priority_encoder = LabelEncoder()
+        y_priority_encoded = self.priority_encoder.fit_transform(y_priority)
+        
+        # Check class distribution for priorities
+        unique_priority_classes, priority_class_counts = np.unique(y_priority_encoded, return_counts=True)
+        print(f"      📊 Priority class distribution: {dict(zip(self.priority_encoder.classes_, priority_class_counts))}")
+        
+        min_priority_count = min(priority_class_counts)
+        use_stratify_priority = min_priority_count >= 2
+        
+        if use_stratify_priority:
+            X_train_p, X_test_p, y_train_p, y_test_p = train_test_split(
+                X_scaled, y_priority_encoded, test_size=0.2, random_state=42, stratify=y_priority_encoded
+            )
+        else:
+            print(f"      ⚠️ Smallest priority class has only {min_priority_count} samples, skipping stratification")
+            X_train_p, X_test_p, y_train_p, y_test_p = train_test_split(
+                X_scaled, y_priority_encoded, test_size=0.2, random_state=42
+            )
+        
+        self.ml_priority_model = LogisticRegression(random_state=42, class_weight='balanced', max_iter=1000)
+        self.ml_priority_model.fit(X_train_p, y_train_p)
+        
+        y_pred_p = self.ml_priority_model.predict(X_test_p)
+        priority_accuracy = accuracy_score(y_test_p, y_pred_p)
+        print(f"      ✅ Priority model accuracy: {priority_accuracy:.3f}")
+        
+        # 3. Train urgency flags model
+        print("   🚨 Training urgency flags model...")
+        training_data['urgency_category'] = training_data['urgency_flags'].apply(
+            lambda x: 'CRITICAL' if 'CRISIS' in str(x) or 'CRITICAL' in str(x)
+                     else 'HIGH_RISK' if 'HIGH_DEBT' in str(x) or 'LEGAL' in str(x)
+                     else 'STABLE'
+        )
+        
+        y_urgency = training_data['urgency_category']
+        self.urgency_encoder = LabelEncoder()
+        y_urgency_encoded = self.urgency_encoder.fit_transform(y_urgency)
+        
+        # Check class distribution for urgency
+        unique_urgency_classes, urgency_class_counts = np.unique(y_urgency_encoded, return_counts=True)
+        print(f"      📊 Urgency class distribution: {dict(zip(self.urgency_encoder.classes_, urgency_class_counts))}")
+        
+        min_urgency_count = min(urgency_class_counts)
+        use_stratify_urgency = min_urgency_count >= 2
+        
+        if use_stratify_urgency:
+            X_train_u, X_test_u, y_train_u, y_test_u = train_test_split(
+                X_scaled, y_urgency_encoded, test_size=0.2, random_state=42, stratify=y_urgency_encoded
+            )
+        else:
+            print(f"      ⚠️ Smallest urgency class has only {min_urgency_count} samples, skipping stratification")
+            X_train_u, X_test_u, y_train_u, y_test_u = train_test_split(
+                X_scaled, y_urgency_encoded, test_size=0.2, random_state=42
+            )
+        
+        self.ml_urgency_model = LogisticRegression(random_state=42, class_weight='balanced', max_iter=1000)
+        self.ml_urgency_model.fit(X_train_u, y_train_u)
+        
+        y_pred_u = self.ml_urgency_model.predict(X_test_u)
+        urgency_accuracy = accuracy_score(y_test_u, y_pred_u)
+        print(f"      ✅ Urgency model accuracy: {urgency_accuracy:.3f}")
+        
+        print(f"\n🎉 All ML models trained successfully!")
+        print(f"   📊 Overall model performance:")
+        print(f"      • Recommendation accuracy: {rec_accuracy:.1%}")
+        print(f"      • Priority accuracy: {priority_accuracy:.1%}")
+        print(f"      • Urgency accuracy: {urgency_accuracy:.1%}")
+        
+        return {
+            'recommendation_accuracy': rec_accuracy,
+            'priority_accuracy': priority_accuracy, 
+            'urgency_accuracy': urgency_accuracy
+        }
+
     def calculate_manual_weights_analysis(self):
         """Calculate user features using manual weights"""
         print("🔧 CALCULATING MANUAL WEIGHTS ANALYSIS")
@@ -147,8 +388,8 @@ class ManualVsMLComparison:
         
         user_df['manual_enhanced_segment'] = user_df.apply(assign_enhanced_segments, axis=1)
         
-        # Generate manual recommendations
-        manual_recommendations = self.generate_manual_recommendations(user_df)
+        # Generate ML-based manual recommendations using trained models
+        manual_recommendations = self.generate_ml_based_recommendations(user_df, method='manual')
         user_df = pd.merge(user_df, manual_recommendations, on='user_id', how='left')
         
         self.manual_results = user_df
@@ -159,149 +400,131 @@ class ManualVsMLComparison:
         
         return user_df
     
-    def generate_manual_recommendations(self, user_df):
-        """Generate recommendations using manual weights logic"""
-        print("🎯 GENERATING MANUAL RECOMMENDATIONS")
+    def generate_ml_based_recommendations(self, user_df, method='manual'):
+        """Generate recommendations using trained ML models"""
+        print(f"🤖 GENERATING ML-BASED RECOMMENDATIONS ({method.upper()})")
         print("-" * 50)
         
+        if self.ml_recommendation_model is None:
+            print("⚠️ ML models not trained yet. Training now...")
+            training_data = self.create_synthetic_training_data()
+            self.train_ml_recommendation_models(training_data)
+        
         recommendations = []
-        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
         
         for _, user_data in user_df.iterrows():
             user_id = user_data['user_id']
-            segment = user_data['manual_enhanced_segment']
-            financial_cat = user_data['manual_financial_category']
-            credit_score = user_data['credit_score']
-            dti_ratio = user_data['dti_ratio']
-            has_ccj = user_data['has_ccj']
-            missed_payments = user_data['missed_payments']
             
-            # Financial priorities
-            financial_priorities = self.get_financial_priorities(user_data)
+            # Prepare features for ML prediction
+            feature_values = []
+            for col in self.feature_columns:
+                if col == 'financial_health_score':
+                    if method == 'manual':
+                        feature_values.append(user_data['manual_financial_health_score'])
+                    else:
+                        feature_values.append(user_data['ml_financial_health_score'])
+                elif col == 'engagement_score':
+                    if method == 'manual':
+                        feature_values.append(user_data['manual_engagement_score'])
+                    else:
+                        feature_values.append(user_data['ml_engagement_score'])
+                else:
+                    feature_values.append(user_data[col])
             
-            # Urgency flags
-            urgency_flags = self.get_urgency_flags(user_data)
+            # Scale features
+            X_user = self.feature_scaler.transform([feature_values])
             
-            # Content recommendations
-            content_scores = self.calculate_content_scores(user_data, content_types)
-            sorted_content = sorted(content_scores.items(), key=lambda x: x[1], reverse=True)
+            # Predict recommendations using ML models
+            rec_pred = self.ml_recommendation_model.predict(X_user)[0]
+            primary_rec = self.recommendation_encoder.inverse_transform([rec_pred])[0]
             
-            # Strategy
-            strategy = self.get_strategy_by_segment(segment, user_data)
+            # Get secondary and tertiary recommendations from probabilities
+            rec_probs = self.ml_recommendation_model.predict_proba(X_user)[0]
+            sorted_indices = np.argsort(rec_probs)[::-1]
             
+            secondary_rec = self.recommendation_encoder.inverse_transform([sorted_indices[1]])[0]
+            tertiary_rec = self.recommendation_encoder.inverse_transform([sorted_indices[2]])[0]
+            
+            # Predict priorities and urgency
+            priority_pred = self.ml_priority_model.predict(X_user)[0]
+            priority_category = self.priority_encoder.inverse_transform([priority_pred])[0]
+            
+            urgency_pred = self.ml_urgency_model.predict(X_user)[0]
+            urgency_category = self.urgency_encoder.inverse_transform([urgency_pred])[0]
+            
+            # Convert categories back to detailed descriptions
+            financial_priorities = self.get_detailed_priorities(priority_category, user_data)
+            urgency_flags = self.get_detailed_urgency(urgency_category, user_data)
+            
+            # Generate strategy
+            if method == 'manual':
+                segment = user_data['manual_enhanced_segment']
+                strategy = self.get_strategy_by_segment(segment, user_data, method='manual')
+            else:
+                segment = user_data['ml_enhanced_segment']
+                strategy = self.get_strategy_by_segment(segment, user_data, method='ml')
+            
+            prefix = method
             recommendations.append({
                 'user_id': user_id,
-                'manual_primary_recommendation': sorted_content[0][0],
-                'manual_secondary_recommendation': sorted_content[1][0],
-                'manual_tertiary_recommendation': sorted_content[2][0],
-                'manual_financial_priorities': ', '.join(financial_priorities),
-                'manual_urgency_flags': ', '.join(urgency_flags),
-                'manual_strategy': strategy
+                f'{prefix}_primary_recommendation': primary_rec,
+                f'{prefix}_secondary_recommendation': secondary_rec,
+                f'{prefix}_tertiary_recommendation': tertiary_rec,
+                f'{prefix}_financial_priorities': ', '.join(financial_priorities),
+                f'{prefix}_urgency_flags': ', '.join(urgency_flags),
+                f'{prefix}_strategy': strategy,
+                f'{prefix}_ml_confidence': rec_probs.max()
             })
         
         return pd.DataFrame(recommendations)
     
-    def get_financial_priorities(self, user_data):
-        """Identify financial priorities for a user"""
+    def get_detailed_priorities(self, category, user_data):
+        """Convert ML category back to detailed priorities"""
         priorities = []
         
-        # PRIORITY 1: Payment issues take highest priority
-        if user_data['missed_payments'] >= 2:
-            priorities.append("URGENT_PAYMENT_MANAGEMENT")
-            
-        # PRIORITY 2: High DTI (≥50%) is critical priority
-        elif user_data['dti_ratio'] >= 0.50:
-            priorities.append("URGENT_DTI_REDUCTION")
-        
-        if user_data['credit_score'] < 650:
-            priorities.append("Credit_Repair")
-        if user_data['dti_ratio'] > 0.6:
-            priorities.append("Debt_Reduction")
-        if user_data['missed_payments'] > 2:
-            priorities.append("Payment_Management")
-        if user_data['has_ccj']:
-            priorities.append("Legal_Financial_Issues")
-        if user_data['total_debt'] > user_data['income'] * 0.8:
-            priorities.append("Debt_Consolidation")
-        if user_data['manual_financial_health_score'] > 0.7 and user_data['income'] > 50000:
+        if category == 'URGENT':
+            if user_data['missed_payments'] >= 2:
+                priorities.append("URGENT_PAYMENT_MANAGEMENT")
+            if user_data['dti_ratio'] >= 0.5:
+                priorities.append("URGENT_DTI_REDUCTION")
+        elif category == 'REPAIR':
+            if user_data['credit_score'] < 650:
+                priorities.append("Credit_Repair")
+            if user_data['dti_ratio'] > 0.6:
+                priorities.append("Debt_Reduction")
+            if user_data['missed_payments'] > 2:
+                priorities.append("Payment_Management")
+        elif category == 'BUILDING':
             priorities.append("Wealth_Building")
-        if not user_data['has_mortgage'] and user_data['manual_financial_health_score'] > 0.6:
-            priorities.append("Homeownership_Ready")
+            if not user_data['has_mortgage']:
+                priorities.append("Homeownership_Ready")
+        else:  # GENERAL
+            priorities.append("General_Financial_Wellness")
         
         return priorities if priorities else ["General_Financial_Wellness"]
     
-    def get_urgency_flags(self, user_data):
-        """Identify urgent financial issues"""
+    def get_detailed_urgency(self, category, user_data):
+        """Convert ML category back to detailed urgency flags"""
         flags = []
         
-        if user_data['dti_ratio'] > 0.8:
-            flags.append("HIGH_DEBT_BURDEN")
-        if user_data['credit_score'] < 500:
-            flags.append("CRITICAL_CREDIT_SCORE")
-        if user_data['missed_payments'] > 4:
-            flags.append("PAYMENT_CRISIS")
-        if user_data['has_ccj']:
-            flags.append("LEGAL_ACTION")
+        if category == 'CRITICAL':
+            if user_data['missed_payments'] > 4:
+                flags.append("PAYMENT_CRISIS")
+            if user_data['credit_score'] < 500:
+                flags.append("CRITICAL_CREDIT_SCORE")
+        elif category == 'HIGH_RISK':
+            if user_data['dti_ratio'] > 0.8:
+                flags.append("HIGH_DEBT_BURDEN")
+            if user_data['has_ccj']:
+                flags.append("LEGAL_ACTION")
+        else:  # STABLE
+            flags.append("STABLE_FINANCIAL_POSITION")
         
         return flags if flags else ["STABLE_FINANCIAL_POSITION"]
     
-    def calculate_content_scores(self, user_data, content_types):
-        """Calculate content scores based on user financial profile"""
-        content_scores = {}
-        missed_payments = user_data['missed_payments']
-        dti_ratio = user_data['dti_ratio']
-        credit_score = user_data['credit_score']
-        has_ccj = user_data['has_ccj']
-        financial_cat = user_data['manual_financial_category']
-        
-        # Base scores (simulate user preferences)
-        base_scores = {content_type: 0.5 for content_type in content_types}
-        
-        for content_type in content_types:
-            base_score = base_scores[content_type]
-            
-            # Apply financial relevance multipliers
-            if missed_payments >= 2:
-                if content_type == 'improve':
-                    base_score *= 2.8
-                elif content_type == 'insights':
-                    base_score *= 2.3
-                elif content_type == 'credit_cards':
-                    base_score *= 0.3
-                elif content_type == 'loans':
-                    base_score *= 0.4
-                elif content_type == 'protect':
-                    base_score *= 1.2
-            elif dti_ratio >= 0.5:
-                if content_type == 'improve':
-                    base_score *= 3.0
-                elif content_type == 'insights':
-                    base_score *= 2.5
-                elif content_type == 'loans':
-                    base_score *= 0.2
-                elif content_type == 'credit_cards':
-                    base_score *= 0.1
-                elif content_type == 'protect':
-                    base_score *= 0.3
-            elif content_type == 'improve' and credit_score < 650:
-                base_score *= 2.0
-            elif content_type == 'protect' and financial_cat == "Excellent":
-                base_score *= 1.5
-            elif content_type == 'loans' and dti_ratio > 0.6:
-                base_score *= 0.5
-            elif content_type == 'credit_cards' and has_ccj:
-                base_score *= 0.3
-            elif content_type == 'drivescore' and financial_cat == "Poor":
-                base_score *= 1.8
-            elif content_type == 'insights' and missed_payments > 2:
-                base_score *= 1.7
-            
-            content_scores[content_type] = base_score
-        
-        return content_scores
-    
-    def get_strategy_by_segment(self, segment, user_data):
+    def get_strategy_by_segment(self, segment, user_data, method='manual'):
         """Get tailored strategy based on enhanced segment"""
+        score_key = f'{method}_financial_health_score'
         strategies = {
             "Debt_Management_Priority": f"🚨 CRITICAL: DTI {user_data['dti_ratio']:.1%} - URGENT debt reduction required. Focus on debt consolidation, payment strategies, budgeting, and avoid all new debt. Immediate action needed.",
             
@@ -313,7 +536,7 @@ class ManualVsMLComparison:
             
             "Recovery_Engaged": f"Deliver financial recovery content with high engagement. Focus on debt management and credit repair while maintaining engagement. Priority: Credit improvement from {user_data['credit_score']}.",
             
-            "Premium_Moderate": f"Offer premium content with clear value propositions. Balance wealth building with practical financial advice. Leverage high financial health score: {user_data['manual_financial_health_score']:.2f}.",
+            "Premium_Moderate": f"Offer premium content with clear value propositions. Balance wealth building with practical financial advice. Leverage high financial health score: {user_data[score_key]:.2f}.",
             
             "Mainstream": f"Provide balanced financial content for users with decent financial health. Focus on practical advice and gradual improvement. Build on solid financial foundation.",
             
@@ -340,8 +563,8 @@ class ManualVsMLComparison:
         # Get the results
         self.ml_results = ml_recommender.df.copy()
         
-        # Generate ML-style recommendations for comparison
-        ml_recommendations = self.generate_ml_recommendations(self.ml_results)
+        # Generate ML-style recommendations for comparison using trained models
+        ml_recommendations = self.generate_ml_based_recommendations(self.ml_results, method='ml')
         self.ml_results = pd.merge(self.ml_results, ml_recommendations, on='user_id', how='left')
         
         print(f"✅ Completed ML analysis for {len(self.ml_results)} users")
@@ -349,49 +572,6 @@ class ManualVsMLComparison:
         print(f"🎯 ML Enhanced Segments: {dict(self.ml_results['ml_enhanced_segment'].value_counts())}")
         
         return self.ml_results
-    
-    def generate_ml_recommendations(self, ml_df):
-        """Generate recommendations using ML-optimized approach"""
-        print("🤖 GENERATING ML-OPTIMIZED RECOMMENDATIONS")
-        print("-" * 50)
-        
-        recommendations = []
-        content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
-        
-        for _, user_data in ml_df.iterrows():
-            user_id = user_data['user_id']
-            segment = user_data['ml_enhanced_segment']
-            financial_cat = user_data['ml_financial_category']
-            
-            # Use same logic but with ML-calculated scores
-            user_data_ml = user_data.copy()
-            user_data_ml['manual_financial_health_score'] = user_data['ml_financial_health_score']
-            user_data_ml['manual_financial_category'] = user_data['ml_financial_category']
-            
-            # Financial priorities (based on ML scores)
-            financial_priorities = self.get_financial_priorities(user_data_ml)
-            
-            # Urgency flags
-            urgency_flags = self.get_urgency_flags(user_data_ml)
-            
-            # Content recommendations (using ML-calculated financial health)
-            content_scores = self.calculate_content_scores(user_data_ml, content_types)
-            sorted_content = sorted(content_scores.items(), key=lambda x: x[1], reverse=True)
-            
-            # Strategy (based on ML segment)
-            strategy = self.get_strategy_by_segment(segment, user_data_ml)
-            
-            recommendations.append({
-                'user_id': user_id,
-                'ml_primary_recommendation': sorted_content[0][0],
-                'ml_secondary_recommendation': sorted_content[1][0],
-                'ml_tertiary_recommendation': sorted_content[2][0],
-                'ml_financial_priorities': ', '.join(financial_priorities),
-                'ml_urgency_flags': ', '.join(urgency_flags),
-                'ml_strategy': strategy
-            })
-        
-        return pd.DataFrame(recommendations)
     
     def create_comparison_visualizations(self):
         """Create comprehensive comparison visualizations"""
@@ -1175,12 +1355,12 @@ class ManualVsMLComparison:
                                         'credit_score', 'dti_ratio', 'income', 'missed_payments',
                                         'click_rate', 'avg_time_viewed', 'total_interactions',
                                         'manual_primary_recommendation', 'manual_secondary_recommendation', 'manual_tertiary_recommendation',
-                                        'manual_financial_priorities', 'manual_urgency_flags', 'manual_strategy']].copy()
+                                        'manual_financial_priorities', 'manual_urgency_flags', 'manual_strategy', 'manual_ml_confidence']].copy()
         manual_csv.columns = ['user_id', 'financial_health_score', 'engagement_score', 'financial_category', 
                              'enhanced_segment', 'credit_score', 'dti_ratio', 'income', 'missed_payments',
                              'click_rate', 'avg_time_viewed', 'total_interactions',
                              'primary_recommendation', 'secondary_recommendation', 'tertiary_recommendation',
-                             'financial_priorities', 'urgency_flags', 'strategy']
+                             'financial_priorities', 'urgency_flags', 'strategy', 'ml_confidence']
         manual_csv['weight_method'] = 'Manual'
         manual_csv.to_csv('manual_weights_results.csv', index=False)
         
@@ -1190,12 +1370,12 @@ class ManualVsMLComparison:
                                 'credit_score', 'dti_ratio', 'income', 'missed_payments',
                                 'click_rate', 'avg_time_viewed', 'total_interactions',
                                 'ml_primary_recommendation', 'ml_secondary_recommendation', 'ml_tertiary_recommendation',
-                                'ml_financial_priorities', 'ml_urgency_flags', 'ml_strategy']].copy()
+                                'ml_financial_priorities', 'ml_urgency_flags', 'ml_strategy', 'ml_ml_confidence']].copy()
         ml_csv.columns = ['user_id', 'financial_health_score', 'engagement_score', 'financial_category', 
                          'enhanced_segment', 'credit_score', 'dti_ratio', 'income', 'missed_payments',
                          'click_rate', 'avg_time_viewed', 'total_interactions',
                          'primary_recommendation', 'secondary_recommendation', 'tertiary_recommendation',
-                         'financial_priorities', 'urgency_flags', 'strategy']
+                         'financial_priorities', 'urgency_flags', 'strategy', 'ml_confidence']
         ml_csv['weight_method'] = 'ML_Learned'
         ml_csv.to_csv('ml_weights_results.csv', index=False)
         
@@ -1220,6 +1400,12 @@ class ManualVsMLComparison:
         """Run the complete manual vs ML comparison analysis"""
         print("🚀 STARTING COMPREHENSIVE MANUAL VS ML ANALYSIS")
         print("=" * 80)
+        
+        # Step 0: Train ML models for recommendations
+        print("\n0️⃣ TRAINING SUPERVISED LEARNING MODELS")
+        print("-" * 60)
+        training_data = self.create_synthetic_training_data()
+        model_performance = self.train_ml_recommendation_models(training_data)
         
         # Step 1: Calculate manual weights analysis
         manual_results = self.calculate_manual_weights_analysis()
@@ -1247,6 +1433,7 @@ class ManualVsMLComparison:
         
         print("\n🎉 ANALYSIS COMPLETE!")
         print("=" * 80)
+        print("✅ ML recommendation models trained")
         print("✅ Manual weight analysis completed")
         print("✅ ML weight optimization completed")
         print("✅ Comprehensive visualizations created")
@@ -1265,10 +1452,17 @@ class ManualVsMLComparison:
         print("   📄 ml_weights_results.csv") 
         print("   📄 manual_vs_ml_comparison.csv")
         
+        print("\n🤖 ML MODEL PERFORMANCE:")
+        print("-" * 40)
+        print(f"   📊 Recommendation Model: {model_performance['recommendation_accuracy']:.1%}")
+        print(f"   💰 Priority Model: {model_performance['priority_accuracy']:.1%}")
+        print(f"   🚨 Urgency Model: {model_performance['urgency_accuracy']:.1%}")
+        
         return {
             'manual_results': manual_results,
             'ml_results': ml_results,
             'comparison_df': comparison_df,
+            'model_performance': model_performance,
             'csv_files': {
                 'manual': manual_csv,
                 'ml': ml_csv,
