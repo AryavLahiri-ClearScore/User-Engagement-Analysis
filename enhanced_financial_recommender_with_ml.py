@@ -21,7 +21,7 @@ class MLEnhancedFinancialRecommender(FinanciallyAwareRecommender):
         """
         Use ML to find optimal engagement score weights
         """
-        print("\n🤖 OPTIMIZING ENGAGEMENT WEIGHTS WITH ML")
+        print(f"\n🤖 OPTIMIZING ENGAGEMENT WEIGHTS WITH ML ({method.upper()})")
         print("=" * 60)
         
         if self.user_features is None:
@@ -33,19 +33,57 @@ class MLEnhancedFinancialRecommender(FinanciallyAwareRecommender):
         
         # Choose optimization method
         if method == 'supervised':
+            print("🔬 Running Supervised Learning optimization...")
             self.ml_weights = self.weight_optimizer.method_1_supervised_learning(target)
         elif method == 'pca':
+            print("🔬 Running PCA weights optimization...")
             self.ml_weights = self.weight_optimizer.method_2_pca_weights()
         elif method == 'genetic':
+            print("🔬 Running Genetic Algorithm optimization...")
             self.ml_weights = self.weight_optimizer.method_3_genetic_algorithm(target)
         elif method == 'multi_objective':
+            print("🔬 Running Multi-objective optimization...")
             self.ml_weights = self.weight_optimizer.method_4_multi_objective_optimization()
         elif method == 'compare_all':
+            print("🔬 Running ALL optimization methods...")
             all_weights = self.weight_optimizer.compare_all_methods()
+            
+            # Debug: Show weights from all methods
+            print("\n🔍 DEBUG: WEIGHTS FROM ALL METHODS:")
+            method_names = ['supervised', 'pca', 'genetic', 'multi_objective']
+            for i, weights in enumerate(all_weights):
+                if i < len(method_names):
+                    print(f"   {method_names[i].upper():15}: {weights}")
+            
             # Use the supervised learning result as default
             self.ml_weights = all_weights[1]  # Index 1 = supervised learning
+            print(f"\n📌 Selected SUPERVISED method weights: {self.ml_weights}")
         else:
             raise ValueError(f"Unknown method: {method}")
+        
+        # Debug: Show the final optimized weights
+        if self.ml_weights:
+            print(f"\n🎯 FINAL OPTIMIZED WEIGHTS ({method.upper()}):")
+            print("-" * 50)
+            total_weight = sum(self.ml_weights.values())
+            for feature, weight in self.ml_weights.items():
+                percentage = (weight / total_weight) * 100 if total_weight > 0 else 0
+                print(f"   {feature:20}: {weight:8.4f} ({percentage:5.1f}%)")
+            print(f"   {'TOTAL':20}: {total_weight:8.4f} ({100.0:5.1f}%)")
+            
+            # Compare with manual weights
+            manual_weights = {'click_rate': 0.4, 'avg_time_viewed': 0.3, 'total_interactions': 0.3}
+            print(f"\n📊 COMPARISON WITH MANUAL WEIGHTS:")
+            print("-" * 50)
+            print(f"{'FEATURE':20} | {'MANUAL':>8} | {'ML':>8} | {'DIFF':>8}")
+            print("-" * 50)
+            for feature in manual_weights.keys():
+                manual_val = manual_weights[feature]
+                ml_val = self.ml_weights.get(feature, 0)
+                diff = ml_val - manual_val
+                print(f"{feature:20} | {manual_val:8.3f} | {ml_val:8.3f} | {diff:+8.3f}")
+        else:
+            print("❌ No weights were generated!")
             
         print(f"\n✅ ML optimization complete! Using {method} method.")
         return self.ml_weights
@@ -151,39 +189,207 @@ class MLEnhancedFinancialRecommender(FinanciallyAwareRecommender):
         
         return self.user_features
     
-    def run_ml_enhanced_analysis(self, optimization_method='compare_all'):
-        """
-        Run complete analysis with ML weight optimization
-        """
-        print("🚀 STARTING ML-ENHANCED ANALYSIS")
-        print("=" * 70)
+    def run_single_method_analysis(self, method_name):
+        """Run analysis with a single ML method"""
+        print(f"\n🔬 ANALYZING WITH {method_name.upper()} METHOD")
+        print("=" * 60)
         
-        # Step 1: Create base features
-        self.create_enhanced_user_features()
+        # Optimize weights with this specific method
+        if method_name == 'manual':
+            print("📊 Using manual weights (no ML optimization)")
+            self.ml_weights = None
+            
+            # Show manual weights for comparison
+            manual_weights = {'click_rate': 0.4, 'avg_time_viewed': 0.3, 'total_interactions': 0.3}
+            print(f"\n📈 MANUAL WEIGHTS FOR {method_name.upper()}:")
+            print("-" * 50)
+            for feature, weight in manual_weights.items():
+                percentage = (weight / 1.0) * 100
+                print(f"   {feature:20}: {weight:8.4f} ({percentage:5.1f}%)")
+        else:
+            print(f"🤖 Optimizing engagement weights using {method_name}")
+            self.optimize_engagement_weights(method=method_name)
+            
+            # The weights are already displayed in optimize_engagement_weights method
+            # But let's add a summary here too
+            if self.ml_weights:
+                print(f"\n🔍 SUMMARY - {method_name.upper()} WEIGHTS:")
+                print("-" * 40)
+                for feature, weight in self.ml_weights.items():
+                    print(f"   {feature:15}: {weight:7.4f}")
+            else:
+                print(f"❌ No weights generated for {method_name}!")
         
-        # Step 2: Optimize engagement weights using ML
-        if self.use_ml_weights:
-            self.optimize_engagement_weights(method=optimization_method)
-        
-        # Step 3: Perform segmentation with optimized weights
-        if self.use_ml_weights:
+        # Perform segmentation with these weights
+        if self.use_ml_weights and self.ml_weights:
             self.perform_enhanced_segmentation_with_ml()
         else:
             self.perform_enhanced_segmentation()
         
-        # Step 4: Rest of analysis (same as original)
+        # Generate recommendations
         recommendations = self.generate_financial_content_recommendations()
         
-        # Step 5: Visualizations
-        self.create_financial_visualizations()
-        self.visualize_financial_clustering()
-        self.create_engagement_financial_correlation()
+        # Show segment distribution in terminal
+        print(f"\n📊 ENHANCED SEGMENTS ({method_name.upper()}):")
+        segments = self.user_features['enhanced_segment'].value_counts()
+        for segment, count in segments.items():
+            percentage = (count / len(self.user_features)) * 100
+            print(f"   {segment:25}: {count:3} users ({percentage:5.1f}%)")
         
-        # Step 6: Print results
-        self.print_enhanced_recommendations(recommendations)
-        self.analyze_segments_by_financial_health()
+        print(f"\n💰 FINANCIAL CATEGORIES ({method_name.upper()}):")
+        financial_cats = self.user_features['financial_category'].value_counts()
+        for category, count in financial_cats.items():
+            percentage = (count / len(self.user_features)) * 100
+            print(f"   {category:12}: {count:3} users ({percentage:5.1f}%)")
         
-        return recommendations
+        # Create visualizations
+        print(f"\n🎨 CREATING VISUALIZATIONS FOR {method_name.upper()}")
+        print("-" * 50)
+        
+        try:
+            self.create_financial_visualizations()
+            print("   ✅ Financial Dashboard")
+        except Exception as e:
+            print(f"   ❌ Financial Dashboard failed: {e}")
+        
+        try:
+            self.visualize_financial_clustering()
+            print("   ✅ Clustering Visualization")
+        except Exception as e:
+            print(f"   ❌ Clustering failed: {e}")
+        
+        try:
+            self.create_engagement_financial_correlation()
+            print("   ✅ Correlation Analysis")
+        except Exception as e:
+            print(f"   ❌ Correlation failed: {e}")
+        
+        # Save method-specific recommendations
+        filename = f"{method_name}_recommendations.csv"
+        recommendations.to_csv(filename, index=False)
+        print(f"💾 Saved: {filename}")
+        
+        return recommendations, segments, financial_cats
+    
+    def run_all_methods_analysis(self):
+        """Run analysis with ALL 4 ML methods plus manual weights"""
+        print("🚀 COMPREHENSIVE ALL-METHODS ANALYSIS")
+        print("=" * 70)
+        
+        # Step 1: Create base features (once)
+        print("\n1️⃣ CREATING BASE USER FEATURES")
+        print("-" * 50)
+        self.create_enhanced_user_features()
+        print(f"✅ Created features for {len(self.user_features)} users")
+        
+        # Define all methods to test
+        methods = ['manual', 'supervised', 'pca', 'genetic', 'multi_objective']
+        
+        all_results = {}
+        
+        # Run each method
+        for method_name in methods:
+            recommendations, segments, financial_cats = self.run_single_method_analysis(method_name)
+            all_results[method_name] = {
+                'recommendations': recommendations,
+                'segments': segments,
+                'financial_cats': financial_cats,
+                'weights': self.ml_weights.copy() if self.ml_weights else None
+            }
+        
+        # Final comparison summary
+        print("\n" + "🏆" * 70)
+        print("FINAL COMPARISON OF ALL METHODS")
+        print("🏆" * 70)
+        
+        print("\n📊 ENHANCED SEGMENTS COMPARISON:")
+        print("-" * 80)
+        print(f"{'METHOD':15} | {'TOP SEGMENT':25} | {'COUNT':>5} | {'%':>6}")
+        print("-" * 80)
+        
+        for method_name in methods:
+            segments = all_results[method_name]['segments']
+            if len(segments) > 0:
+                top_segment = segments.index[0]
+                count = segments.iloc[0]
+                percentage = (count / len(self.user_features)) * 100
+                print(f"{method_name.upper():15} | {top_segment:25} | {count:5} | {percentage:5.1f}%")
+            else:
+                print(f"{method_name.upper():15} | {'No segments found':25} | {'0':5} | {'0.0':>5}%")
+        
+        print(f"\n📋 DETAILED SEGMENTS FOR ALL METHODS:")
+        print("-" * 80)
+        
+        for method_name in methods:
+            segments = all_results[method_name]['segments']
+            weights = all_results[method_name]['weights']
+            
+            print(f"\n🔬 {method_name.upper()} METHOD:")
+            if weights:
+                print(f"   Weights: click_rate={weights.get('click_rate', 0):.3f}, "
+                      f"avg_time={weights.get('avg_time_viewed', 0):.3f}, "
+                      f"interactions={weights.get('total_interactions', 0):.3f}")
+            else:
+                print(f"   Weights: Manual (click_rate=0.400, avg_time=0.300, interactions=0.300)")
+            
+            print(f"   Enhanced Segments:")
+            for segment, count in segments.items():
+                percentage = (count / len(self.user_features)) * 100
+                print(f"     • {segment:25}: {count:3} users ({percentage:5.1f}%)")
+        
+        print(f"\n💰 FINANCIAL CATEGORIES COMPARISON:")
+        print("-" * 80)
+        
+        for method_name in methods:
+            financial_cats = all_results[method_name]['financial_cats']
+            print(f"\n{method_name.upper():15} | Financial Categories:")
+            for category, count in financial_cats.items():
+                percentage = (count / len(self.user_features)) * 100
+                print(f"{'':15} | {category:12}: {count:3} users ({percentage:5.1f}%)")
+        
+        print(f"\n✅ FILES GENERATED:")
+        for method_name in methods:
+            print(f"   - {method_name}_recommendations.csv")
+        
+        return all_results
+    
+    def run_ml_enhanced_analysis(self, optimization_method='all_methods'):
+        """
+        Run complete analysis - supports single method or all methods
+        """
+        if optimization_method == 'all_methods':
+            return self.run_all_methods_analysis()
+        else:
+            # Single method analysis - for backwards compatibility
+            print("🚀 STARTING ML-ENHANCED ANALYSIS")
+            print("=" * 70)
+            
+            # Step 1: Create base features
+            self.create_enhanced_user_features()
+            
+            # Step 2: Optimize engagement weights using ML
+            if self.use_ml_weights:
+                self.optimize_engagement_weights(method=optimization_method)
+            
+            # Step 3: Perform segmentation with optimized weights
+            if self.use_ml_weights:
+                self.perform_enhanced_segmentation_with_ml()
+            else:
+                self.perform_enhanced_segmentation()
+            
+            # Step 4: Rest of analysis (same as original)
+            recommendations = self.generate_financial_content_recommendations()
+            
+            # Step 5: Visualizations
+            self.create_financial_visualizations()
+            self.visualize_financial_clustering()
+            self.create_engagement_financial_correlation()
+            
+            # Step 6: Print results
+            self.print_enhanced_recommendations(recommendations)
+            self.analyze_segments_by_financial_health()
+            
+            return recommendations
 
 
 # Example usage
@@ -199,37 +405,18 @@ if __name__ == "__main__":
             use_ml_weights=True
         )
         
-        # This will compare all ML methods and use the best one
-        ml_recommendations = ml_recommender.run_ml_enhanced_analysis(
-            optimization_method='compare_all'
+        # Run ALL 4 ML methods + manual for comprehensive comparison
+        all_results = ml_recommender.run_ml_enhanced_analysis(
+            optimization_method='all_methods'
         )
         
-        # Save results
-        ml_recommendations.to_csv('ml_enhanced_recommendations.csv', index=False)
-        print("\n✅ ML-enhanced recommendations saved to 'ml_enhanced_recommendations.csv'")
-        
-        # Option 2: Compare with manual weights
-        print("\n📊 COMPARING WITH MANUAL WEIGHTS")
-        manual_recommender = MLEnhancedFinancialRecommender(
-            'joined_user_table.csv', 
-            use_ml_weights=False
-        )
-        
-        manual_recommendations = manual_recommender.run_enhanced_analysis()
-        
-        # Analysis comparison
-        print("\n🔍 COMPARING SEGMENTATION RESULTS:")
-        print("=" * 50)
-        
-        ml_segments = ml_recommendations['enhanced_segment'].value_counts()
-        manual_segments = manual_recommendations['enhanced_segment'].value_counts()
-        
-        print("ML-Optimized Segments:")
-        print(ml_segments)
-        print("\nManual Weight Segments:")
-        print(manual_segments)
-        
-        print("\n💡 Consider A/B testing these different approaches in production!")
+        print("\n🎉 COMPREHENSIVE ANALYSIS COMPLETE!")
+        print("✅ All 4 ML methods + manual weights analyzed")
+        print("✅ Enhanced segments shown for each method")
+        print("✅ All visualizations created") 
+        print("✅ All recommendation files saved")
+        print("\n💡 Compare the segment distributions above to see how different")
+        print("   ML optimization methods affect user segmentation!")
         
     except FileNotFoundError:
         print("❌ Error: joined_user_table.csv not found")

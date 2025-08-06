@@ -200,8 +200,19 @@ class FinanciallyAwareRecommender:
     def create_financial_visualizations(self):
         """Create comprehensive financial and engagement visualizations"""
         print("\n" + "=" * 60)
-        print("CREATING FINANCIAL ANALYSIS VISUALaIZATIONS")
+        print("🎨 METHOD 1: CREATING FINANCIAL ANALYSIS VISUALIZATIONS")
         print("=" * 60)
+        
+        # Debug: Show financial categories and segments
+        print("🔍 FINANCIAL CATEGORIES DEBUG:")
+        financial_cats = self.user_features['financial_category'].value_counts()
+        print(f"   Categories found: {dict(financial_cats)}")
+        
+        print("🔍 ENHANCED SEGMENTS DEBUG:")
+        segments = self.user_features['enhanced_segment'].value_counts()
+        print(f"   Segments found: {dict(segments)}")
+        print(f"   Unique segments: {self.user_features['enhanced_segment'].unique()}")
+        print(f"   Any NaN segments? {self.user_features['enhanced_segment'].isna().sum()}")
         
         # FIGURE 1: Financial Health Dashboard (2x3 grid)
         fig1, axes1 = plt.subplots(2, 3, figsize=(20, 12))
@@ -398,8 +409,19 @@ class FinanciallyAwareRecommender:
     def visualize_financial_clustering(self):
         """Visualize the enhanced clustering with financial context"""
         print("\n" + "=" * 60)
-        print("FINANCIAL CLUSTERING VISUALIZATION")
+        print("🎨 METHOD 2: FINANCIAL CLUSTERING VISUALIZATION")
         print("=" * 60)
+        
+        # Debug: Show financial categories and segments again
+        print("🔍 CLUSTERING - FINANCIAL CATEGORIES DEBUG:")
+        financial_cats = self.user_features['financial_category'].value_counts()
+        print(f"   Categories found: {dict(financial_cats)}")
+        
+        print("🔍 CLUSTERING - ENHANCED SEGMENTS DEBUG:")
+        segments = self.user_features['enhanced_segment'].value_counts()
+        print(f"   Segments found: {dict(segments)}")
+        print(f"   Unique segments: {self.user_features['enhanced_segment'].unique()}")
+        print(f"   Any NaN segments? {self.user_features['enhanced_segment'].isna().sum()}")
         
         # Prepare features for clustering (same as used in segmentation)
         engagement_features = ['avg_time_viewed', 'total_interactions', 'click_rate', 'unique_content_viewed']
@@ -476,8 +498,19 @@ class FinanciallyAwareRecommender:
     def create_engagement_financial_correlation(self):
         """Create correlation analysis between engagement and financial metrics"""
         print("\n" + "=" * 60)
-        print("ENGAGEMENT vs FINANCIAL CORRELATION ANALYSIS")
+        print("🎨 METHOD 3: ENGAGEMENT vs FINANCIAL CORRELATION ANALYSIS")
         print("=" * 60)
+        
+        # Debug: Show financial categories and segments again
+        print("🔍 CORRELATION - FINANCIAL CATEGORIES DEBUG:")
+        financial_cats = self.user_features['financial_category'].value_counts()
+        print(f"   Categories found: {dict(financial_cats)}")
+        
+        print("🔍 CORRELATION - ENHANCED SEGMENTS DEBUG:")
+        segments = self.user_features['enhanced_segment'].value_counts()
+        print(f"   Segments found: {dict(segments)}")
+        print(f"   Unique segments: {self.user_features['enhanced_segment'].unique()}")
+        print(f"   Any NaN segments? {self.user_features['enhanced_segment'].isna().sum()}")
         
         # Select engagement and financial metrics for correlation
         engagement_metrics = ['engagement_score', 'click_rate', 'avg_time_viewed', 
