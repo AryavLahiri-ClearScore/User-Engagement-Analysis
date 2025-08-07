@@ -330,6 +330,7 @@ class FullyMLFinancialRecommender:
             self.df['ml_engagement_score'] = ml_engagement_scores
         else:
             print("Creating synthetic engagement scores for analysis...")
+            np.random.seed(42)  # Ensure reproducible synthetic scores
             self.df['ml_engagement_score'] = np.random.beta(2, 3, len(self.df))
         
         # Categorize financial health

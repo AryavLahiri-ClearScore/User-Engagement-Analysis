@@ -39,6 +39,9 @@ class ManualVsMLComparison:
         print("🎯 CREATING REAL TRAINING DATA FROM ACTUAL USER BEHAVIOR")
         print("-" * 60)
         
+        # Set random seed for reproducible results
+        np.random.seed(42)
+        
         # Create user-level financial data
         user_financial = self.df.groupby('user_id').agg({
             'credit_score': 'first',
@@ -136,7 +139,8 @@ class ManualVsMLComparison:
                 priorities = ['General_Financial_Wellness']
                 urgency = ['STABLE_FINANCIAL_POSITION']
             
-            # Less randomness since we're using real data patterns
+            # Add fixed randomness to prevent overfitting (seeded for reproducibility)
+            # This uses the same random choices every run but still provides ML benefits
             if np.random.random() < 0.05:  # Only 5% randomness with real data
                 primary_rec = np.random.choice(content_types)
             
@@ -978,7 +982,7 @@ class ManualVsMLComparison:
         # Scale and apply PCA
         scaler = StandardScaler()
         scaled_data = scaler.fit_transform(cluster_data)
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=2, random_state=42)
         pca_data = pca.fit_transform(scaled_data)
         
         # Color by financial category
@@ -1511,6 +1515,9 @@ class ManualVsMLComparison:
 if __name__ == "__main__":
     print("🔬 MANUAL VS ML COMPREHENSIVE COMPARISON")
     print("=" * 80)
+    
+    # Set global random seed for completely reproducible results
+    np.random.seed(42)
     
     try:
         # Create comparison analyzer
