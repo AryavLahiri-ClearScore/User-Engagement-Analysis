@@ -433,6 +433,335 @@ class VisualizationFactory:
         plt.close(fig)
 
 # ================================
+# RECOMMENDATION ENGINE
+# ================================
+
+class RecommendationEngine:
+    """Handles content recommendation generation based on financial profiles"""
+    
+    def __init__(self, financial_config: FinancialConfig):
+        self.financial_config = financial_config
+        self.content_types = ['improve', 'insights', 'drivescore', 'protect', 'credit_cards', 'loans']
+    
+    def generate_financial_content_recommendations(self, user_features: pd.DataFrame) -> pd.DataFrame:
+        """Generate financially-aware content recommendations"""
+        print("Generating financially-aware recommendations...")
+        
+        recommendations = []
+        
+        for user_id, user_data in user_features.iterrows():
+            segment = user_data['enhanced_segment']
+            financial_cat = user_data['financial_category']
+            credit_score = user_data['credit_score']
+            dti_ratio = user_data['dti_ratio']
+            has_ccj = user_data['has_ccj']
+            missed_payments = user_data['missed_payments']
+            
+            # Financial priority recommendations
+            financial_priorities = self.get_financial_priorities(user_data)
+            
+            # Base content preferences
+            user_prefs = {}
+            for content_type in self.content_types:
+                user_prefs[content_type] = user_data.get(f'pref_{content_type}', 0)
+            
+            # Apply financial context to content scoring
+            content_scores = self._calculate_content_scores(user_prefs, user_data)
+            
+            # Sort by adjusted scores
+            sorted_content = sorted(content_scores.items(), key=lambda x: x[1], reverse=True)
+            
+            # Generate segment-specific strategies
+            strategy = self.get_strategy_by_segment(segment, user_data)
+            
+            # Add urgency flags
+            urgency_flags = self.get_urgency_flags(user_data)
+            
+            recommendations.append({
+                'user_id': user_id,
+                'enhanced_segment': segment,
+                'financial_category': financial_cat,
+                'primary_recommendation': sorted_content[0][0],
+                'secondary_recommendation': sorted_content[1][0],
+                'tertiary_recommendation': sorted_content[2][0],
+                'financial_priorities': ', '.join(financial_priorities),
+                'urgency_flags': ', '.join(urgency_flags),
+                'strategy': strategy,
+                'credit_score': credit_score,
+                'dti_ratio': dti_ratio,
+                'financial_health_score': user_data['financial_health_score'],
+                'engagement_score': user_data['engagement_score']
+            })
+        
+        return pd.DataFrame(recommendations)
+    
+    def _calculate_content_scores(self, user_prefs: Dict[str, float], user_data: pd.Series) -> Dict[str, float]:
+        """Calculate content scores based on financial context"""
+        content_scores = {}
+        missed_payments = user_data['missed_payments']
+        dti_ratio = user_data['dti_ratio']
+        credit_score = user_data['credit_score']
+        financial_cat = user_data['financial_category']
+        has_ccj = user_data['has_ccj']
+        
+        for content_type in self.content_types:
+            base_score = user_prefs[content_type]
+            
+            # Apply financial relevance multipliers based on direct metrics
+            # PRIORITY 1: FINN_DIFF (Missed Payments >= 2) - Focus on payment management and credit repair
+            if missed_payments >= self.financial_config.finn_diff_threshold:
+                if content_type == 'improve':
+                    base_score *= 2.8  # High priority - payment management and credit repair
+                elif content_type == 'insights':
+                    base_score *= 2.3  # Financial insights for payment strategies
+                elif content_type == 'credit_cards':
+                    base_score *= 0.3  # Discourage more credit until payment issues resolved
+                elif content_type == 'loans':
+                    base_score *= 0.4  # Discourage loans but not as severely as credit cards
+                elif content_type == 'protect':
+                    base_score *= 1.2  # Some protection content may help with budgeting
+            
+            # PRIORITY 2: HIGH DTI (>= 50%) - Focus on debt reduction strategies
+            elif dti_ratio >= self.financial_config.high_dti_threshold:
+                if content_type == 'improve':
+                    base_score *= 3.0  # Highest priority - debt management strategies
+                elif content_type == 'insights':
+                    base_score *= 2.5  # Financial insights for debt reduction
+                elif content_type == 'loans':
+                    base_score *= 0.2  # Strongly discourage more loans
+                elif content_type == 'credit_cards':
+                    base_score *= 0.1  # Strongly discourage credit cards
+                elif content_type == 'protect':
+                    base_score *= 0.3  # Lower priority until debt managed
+            elif content_type == 'improve' and credit_score < 650:
+                base_score *= 2.0  # Credit improvement is high priority
+            elif content_type == 'protect' and financial_cat == "Excellent":
+                base_score *= 1.5  # Wealth protection for financially healthy users
+            elif content_type == 'loans' and dti_ratio > 0.6:
+                base_score *= 0.5  # Reduce loan recommendations for high DTI
+            elif content_type == 'credit_cards' and has_ccj:
+                base_score *= 0.3  # Reduce credit card recommendations for CCJ users
+            elif content_type == 'drivescore' and financial_cat == "Poor":
+                base_score *= 1.8  # Financial education priority for financially challenged users
+            elif content_type == 'insights' and missed_payments > 2:
+                base_score *= 1.7  # Financial insights for users with payment issues
+            
+            content_scores[content_type] = base_score
+        
+        return content_scores
+    
+    def get_financial_priorities(self, user_data: pd.Series) -> List[str]:
+        """Identify financial priorities for a user"""
+        priorities = []
+        
+        # PRIORITY 1: Payment issues take highest priority
+        if user_data['missed_payments'] >= self.financial_config.finn_diff_threshold:
+            priorities.append("URGENT_PAYMENT_MANAGEMENT")
+            
+        # PRIORITY 2: High DTI (≥50%) is critical priority
+        elif user_data['dti_ratio'] >= self.financial_config.high_dti_threshold:
+            priorities.append("URGENT_DTI_REDUCTION")
+        
+        if user_data['credit_score'] < 650:
+            priorities.append("Credit_Repair")
+        if user_data['dti_ratio'] > 0.6:
+            priorities.append("Debt_Reduction")
+        if user_data['missed_payments'] > 2:
+            priorities.append("Payment_Management")
+        if user_data['has_ccj']:
+            priorities.append("Legal_Financial_Issues")
+        if user_data['total_debt'] > user_data['income'] * 0.8:
+            priorities.append("Debt_Consolidation")
+        if user_data['financial_health_score'] > 0.7 and user_data['income'] > 50000:
+            priorities.append("Wealth_Building")
+        if not user_data['has_mortgage'] and user_data['financial_health_score'] > 0.6:
+            priorities.append("Homeownership_Ready")
+        
+        return priorities if priorities else ["General_Financial_Wellness"]
+    
+    def get_urgency_flags(self, user_data: pd.Series) -> List[str]:
+        """Identify urgent financial issues"""
+        flags = []
+        
+        if user_data['dti_ratio'] > 0.8:
+            flags.append("HIGH_DEBT_BURDEN")
+        if user_data['credit_score'] < 500:
+            flags.append("CRITICAL_CREDIT_SCORE")
+        if user_data['missed_payments'] > 4:
+            flags.append("PAYMENT_CRISIS")
+        if user_data['has_ccj']:
+            flags.append("LEGAL_ACTION")
+        
+        return flags if flags else ["STABLE_FINANCIAL_POSITION"]
+    
+    def get_strategy_by_segment(self, segment: str, user_data: pd.Series) -> str:
+        """Get tailored strategy based on enhanced segment"""
+        strategies = {
+            "Debt_Management_Priority": f"🚨 CRITICAL: DTI {user_data['dti_ratio']:.1%} - URGENT debt reduction required. Focus on debt consolidation, payment strategies, budgeting, and avoid all new debt. Immediate action needed.",
+            
+            "Payment_Recovery_Priority": f"🚨 PAYMENT ISSUES: {user_data['missed_payments']} missed payments detected - URGENT payment management required. Focus on payment scheduling, budgeting, automatic payments, and credit repair strategies. Address payment history immediately.",
+            
+            "Premium_Engaged": f"Offer premium wealth management and investment content. Focus on portfolio optimization and advanced financial strategies. Credit score: {user_data['credit_score']}.",
+            
+            "Growth_Focused": f"Provide growth-oriented financial content with moderate complexity. Focus on building wealth and improving financial position. Current DTI: {user_data['dti_ratio']:.2f}.",
+            
+            "Recovery_Engaged": f"Deliver financial recovery content with high engagement. Focus on debt management and credit repair while maintaining engagement. Priority: Credit improvement from {user_data['credit_score']}.",
+            
+            "Premium_Moderate": f"Offer premium content with clear value propositions. Balance wealth building with practical financial advice. Leverage high financial health score: {user_data['financial_health_score']:.2f}.",
+            
+            "Mainstream": f"Provide balanced financial content for users with decent financial health. Focus on practical advice and gradual improvement. Build on solid financial foundation.",
+            
+            "Recovery_Moderate": f"Deliver accessible financial recovery content. Simplify complex concepts and focus on immediate actionable steps. Address DTI ratio: {user_data['dti_ratio']:.2f}.",
+            
+            "Financial_Priority": f"Urgent: Focus on critical financial issues first. Provide crisis management content and immediate help resources. Address multiple risk factors.",
+            
+            "Activation_Needed": f"Basic financial education and engagement building. Start with simple concepts and gradually increase complexity. Build financial awareness."
+        }
+        
+        return strategies.get(segment, "Provide general financial guidance based on user profile.")
+    
+    def print_enhanced_recommendations(self, recommendations_df: pd.DataFrame, n_samples: int = 10):
+        """Print sample enhanced recommendations"""
+        print("\n" + "=" * 80)
+        print("ENHANCED FINANCIALLY-AWARE RECOMMENDATIONS")
+        print("=" * 80)
+        
+        for _, user in recommendations_df.head(n_samples).iterrows():
+            print(f"\nUser: {user['user_id']}")
+            print(f"Enhanced Segment: {user['enhanced_segment']}")
+            print(f"Financial Category: {user['financial_category']}")
+            print(f"Credit Score: {user['credit_score']} | DTI: {user['dti_ratio']:.2f} | Health Score: {user['financial_health_score']:.2f}")
+            print(f"Primary Rec: {user['primary_recommendation']}")
+            print(f"Financial Priorities: {user['financial_priorities']}")
+            print(f"Urgency Flags: {user['urgency_flags']}")
+            print(f"Strategy: {user['strategy'][:100]}...")
+            print("-" * 80)
+
+# ================================
+# DTI ANALYSIS UTILITIES
+# ================================
+
+class DTIAnalyzer:
+    """Utility class for DTI (Debt-to-Income) analysis"""
+    
+    @staticmethod
+    def sort_users_by_dti(user_features: pd.DataFrame, ascending: bool = False, 
+                         min_dti: Optional[float] = None, top_n: Optional[int] = None, 
+                         show_details: bool = True) -> pd.DataFrame:
+        """
+        Sort and analyze users by their DTI (Debt-to-Income) ratio
+        
+        Parameters:
+        - user_features: DataFrame with user financial data
+        - ascending: If True, sort from lowest to highest DTI. If False, highest to lowest (default)
+        - min_dti: Filter to only show users with DTI >= this value (e.g., 0.50 for high DTI)
+        - top_n: Show only the top N users (e.g., top 10 highest DTI)
+        - show_details: Print detailed analysis and summary
+        
+        Returns:
+        - DataFrame sorted by DTI with relevant financial information
+        """
+        if user_features is None or user_features.empty:
+            print("❌ Error: No user features available.")
+            return None
+        
+        # Select relevant columns for DTI analysis
+        base_dti_columns = [
+            'dti_ratio', 'financial_category', 'financial_health_score',
+            'credit_score', 'total_debt', 'income', 'missed_payments', 'has_ccj', 
+            'has_mortgage', 'has_car'
+        ]
+        
+        # Check which columns actually exist in user_features
+        available_columns = [col for col in base_dti_columns if col in user_features.columns]
+        
+        if 'dti_ratio' not in available_columns:
+            print("❌ Error: DTI ratio column not found in user features.")
+            return None
+        
+        # Create DTI analysis DataFrame
+        dti_analysis = user_features[available_columns].copy()
+        
+        # Add percentage format for easier reading
+        dti_analysis['dti_percentage'] = dti_analysis['dti_ratio'] * 100
+        
+        # Sort by DTI ratio (ascending=False means highest DTI first)
+        dti_sorted = dti_analysis.sort_values('dti_ratio', ascending=ascending)
+        
+        # Apply filters if specified
+        if min_dti is not None:
+            dti_sorted = dti_sorted[dti_sorted['dti_ratio'] >= min_dti]
+            
+        if top_n is not None:
+            dti_sorted = dti_sorted.head(top_n)
+        
+        if show_details:
+            DTIAnalyzer._print_dti_analysis(dti_sorted, user_features, min_dti, top_n)
+        
+        return dti_sorted
+    
+    @staticmethod
+    def _print_dti_analysis(dti_sorted: pd.DataFrame, all_users: pd.DataFrame, 
+                           min_dti: Optional[float], top_n: Optional[int]):
+        """Print detailed DTI analysis"""
+        print("📊 DTI ANALYSIS REPORT")
+        print("=" * 50)
+        
+        total_users = len(all_users)
+        analyzed_users = len(dti_sorted)
+        
+        print(f"Total users analyzed: {analyzed_users} out of {total_users}")
+        if min_dti:
+            print(f"Filtered for DTI >= {min_dti:.1%}")
+        if top_n:
+            print(f"Showing top {top_n} users")
+            
+        print(f"\nDTI Statistics:")
+        print(f"  Mean DTI: {dti_sorted['dti_ratio'].mean():.1%}")
+        print(f"  Median DTI: {dti_sorted['dti_ratio'].median():.1%}")
+        print(f"  Highest DTI: {dti_sorted['dti_ratio'].max():.1%}")
+        print(f"  Lowest DTI: {dti_sorted['dti_ratio'].min():.1%}")
+        
+        # DTI category breakdown - UNIFORM 50% THRESHOLD FOR "HIGH DTI"
+        print(f"\nDTI Risk Categories:")
+        high_dti = (dti_sorted['dti_ratio'] >= 0.50).sum()  # HIGH DTI = 50%+
+        elevated_dti = ((dti_sorted['dti_ratio'] >= 0.35) & (dti_sorted['dti_ratio'] < 0.50)).sum()
+        moderate_dti = ((dti_sorted['dti_ratio'] >= 0.25) & (dti_sorted['dti_ratio'] < 0.35)).sum()
+        healthy_dti = (dti_sorted['dti_ratio'] < 0.25).sum()
+        
+        print(f"  🚨 High DTI (≥50%): {high_dti} users ({high_dti/analyzed_users*100:.1f}%)")
+        print(f"  ⚠️  Elevated (35-49%): {elevated_dti} users ({elevated_dti/analyzed_users*100:.1f}%)")
+        print(f"  ⚡ Moderate (25-34%): {moderate_dti} users ({moderate_dti/analyzed_users*100:.1f}%)")
+        print(f"  ✅ Healthy (<25%): {healthy_dti} users ({healthy_dti/analyzed_users*100:.1f}%)")
+        
+        # Financial category correlation
+        print(f"\nFinancial Category Distribution:")
+        category_counts = dti_sorted['financial_category'].value_counts()
+        for category, count in category_counts.items():
+            print(f"  {category}: {count} users ({count/analyzed_users*100:.1f}%)")
+        
+        # Show user summary
+        if top_n:
+            print(f"\n🔍 TOP {top_n} HIGHEST DTI USERS:")
+        elif min_dti:
+            print(f"\n🔍 ALL USERS WITH DTI >= {min_dti:.1%}:")
+        else:
+            print(f"\n🔍 ALL USERS RANKED BY DTI (HIGHEST TO LOWEST):")
+        
+        print("-" * 80)
+        
+        # Show all users in the filtered/sorted dataset
+        for idx, (user_id, user) in enumerate(dti_sorted.iterrows(), 1):
+            dti_pct = user['dti_percentage']
+            fin_cat = user['financial_category']
+            credit = user['credit_score']
+            income = user['income']
+            debt = user['total_debt']
+            
+            print(f"{idx:3d}. {user_id}: DTI {dti_pct:5.1f}% | {fin_cat:12s} | "
+                  f"Credit {credit:3.0f} | Income £{income:6.0f} | Debt £{debt:8.0f}")
+
+# ================================
 # MAIN RECOMMENDER CLASS (REFACTORED)
 # ================================
 
@@ -454,6 +783,7 @@ class RefactoredFinancialRecommender:
         self.financial_calculator = FinancialHealthCalculator(self.financial_config)
         self.engagement_calculator = EngagementCalculator(self.engagement_config)
         self.segmentation_strategy = PriorityBasedSegmentation(self.financial_config, self.engagement_config)
+        self.recommendation_engine = RecommendationEngine(self.financial_config)
         
         # Data
         self.user_features = None
@@ -604,6 +934,28 @@ class RefactoredFinancialRecommender:
         
         return segment_analysis
     
+    def generate_recommendations(self) -> pd.DataFrame:
+        """Generate enhanced financial recommendations"""
+        if self.user_features is None or 'enhanced_segment' not in self.user_features.columns:
+            self.perform_segmentation()
+        
+        return self.recommendation_engine.generate_financial_content_recommendations(self.user_features)
+    
+    def print_sample_recommendations(self, recommendations_df: pd.DataFrame, n_samples: int = 10):
+        """Print sample recommendations using the recommendation engine"""
+        self.recommendation_engine.print_enhanced_recommendations(recommendations_df, n_samples)
+    
+    def analyze_dti(self, ascending: bool = False, min_dti: Optional[float] = None, 
+                   top_n: Optional[int] = None, show_details: bool = True) -> pd.DataFrame:
+        """Analyze users by DTI ratio using the DTI analyzer"""
+        if self.user_features is None:
+            self.create_user_features()
+        
+        return DTIAnalyzer.sort_users_by_dti(
+            self.user_features, ascending=ascending, min_dti=min_dti, 
+            top_n=top_n, show_details=show_details
+        )
+    
     def run_analysis(self, config_name: str = "standard") -> Tuple[pd.DataFrame, Dict]:
         """Run complete analysis pipeline with configurable naming"""
         print(f"🚀 STARTING REFACTORED FINANCIAL ANALYSIS ({config_name.upper()})")
@@ -637,6 +989,51 @@ class RefactoredFinancialRecommender:
         
         print(f"\n✅ {config_name.upper()} ANALYSIS COMPLETE!")
         return segmented_features, analysis
+    
+    def run_enhanced_analysis(self, config_name: str = "enhanced") -> Tuple[pd.DataFrame, pd.DataFrame, Dict]:
+        """Run complete analysis including recommendations"""
+        print(f"🚀 STARTING ENHANCED REFACTORED ANALYSIS ({config_name.upper()})")
+        print("=" * 70)
+        
+        # Create features and perform segmentation
+        features = self.create_user_features()
+        segmented_features = self.perform_segmentation()
+        
+        # Generate recommendations
+        print(f"\n💡 GENERATING {config_name.upper()} RECOMMENDATIONS...")
+        recommendations = self.generate_recommendations()
+        
+        # Save recommendations
+        recommendations_filename = f"{config_name}_recommendations.csv"
+        recommendations.to_csv(recommendations_filename, index=False)
+        print(f"✅ Recommendations saved to '{recommendations_filename}'")
+        
+        # Analyze results
+        analysis = self.analyze_segments()
+        
+        # Create visualizations
+        print(f"\n📊 CREATING {config_name.upper()} VISUALIZATIONS...")
+        financial_dashboard_fig = VisualizationFactory.create_financial_dashboard(segmented_features)
+        correlation_heatmap_fig = VisualizationFactory.create_correlation_heatmap(segmented_features)
+        clustering_visualization_fig = VisualizationFactory.create_clustering_visualization(segmented_features, self.clustering_config)
+        
+        # Display and save visualizations
+        VisualizationFactory.display_and_save_figure(
+            financial_dashboard_fig, f"{config_name}_financial_dashboard.png"
+        )
+        VisualizationFactory.display_and_save_figure(
+            correlation_heatmap_fig, f"{config_name}_correlation_heatmap.png"
+        )
+        VisualizationFactory.display_and_save_figure(
+            clustering_visualization_fig, f"{config_name}_clustering_visualization.png"
+        )
+        
+        # Print sample recommendations
+        print(f"\n🎯 SAMPLE {config_name.upper()} RECOMMENDATIONS:")
+        self.print_sample_recommendations(recommendations, n_samples=5)
+        
+        print(f"\n✅ {config_name.upper()} ENHANCED ANALYSIS COMPLETE!")
+        return segmented_features, recommendations, analysis
 
 # ================================
 # CONFIGURATION EXAMPLES
@@ -822,6 +1219,52 @@ if __name__ == "__main__":
         
         print(f"\n💡 TOTAL: 9 visualization files for comparative analysis!")
         print(f"Now you can compare how different business strategies affect user segmentation")
+        
+        # DEMONSTRATION: Enhanced analysis with recommendations
+        print("\n" + "=" * 70)
+        print("🎯 DEMONSTRATION: ENHANCED ANALYSIS WITH RECOMMENDATIONS")
+        print("=" * 70)
+        
+        # Run enhanced analysis for standard configuration
+        print("\n📊 RUNNING ENHANCED STANDARD ANALYSIS WITH RECOMMENDATIONS")
+        enhanced_features, enhanced_recommendations, enhanced_analysis = standard_recommender.run_enhanced_analysis("refactored_standard")
+        
+        # Show DTI analysis
+        print("\n🔍 DTI ANALYSIS (Top 10 highest DTI users):")
+        high_dti_users = standard_recommender.analyze_dti(top_n=10, show_details=True)
+        
+        # Show recommendation summary
+        print(f"\n📈 RECOMMENDATION SUMMARY:")
+        print("=" * 50)
+        primary_rec_counts = enhanced_recommendations['primary_recommendation'].value_counts()
+        print("Primary Recommendation Distribution:")
+        for rec, count in primary_rec_counts.items():
+            percentage = (count / len(enhanced_recommendations)) * 100
+            print(f"  {rec}: {count} users ({percentage:.1f}%)")
+        
+        urgency_summary = enhanced_recommendations['urgency_flags'].value_counts()
+        print(f"\nUrgency Flags Distribution:")
+        for flag, count in urgency_summary.items():
+            percentage = (count / len(enhanced_recommendations)) * 100
+            print(f"  {flag}: {count} users ({percentage:.1f}%)")
+        
+        print(f"\n📁 ENHANCED FILES GENERATED:")
+        print("=" * 60)
+        print("🔹 REFACTORED STANDARD WITH RECOMMENDATIONS:")
+        print("   • refactored_standard_recommendations.csv")
+        print("   • refactored_standard_financial_dashboard.png")
+        print("   • refactored_standard_correlation_heatmap.png") 
+        print("   • refactored_standard_clustering_visualization.png")
+        
+        print(f"\n🎉 REFACTORING WITH RECOMMENDATIONS COMPLETE!")
+        print("The refactored system now includes:")
+        print("✅ Modular recommendation engine")
+        print("✅ DTI analysis utilities")
+        print("✅ Financial priority detection")
+        print("✅ Urgency flag identification") 
+        print("✅ Segment-based content strategies")
+        print("✅ Configurable business rules")
+        print("✅ Clean separation of concerns")
         
     except FileNotFoundError:
         print("❌ Error: joined_user_table.csv not found")
