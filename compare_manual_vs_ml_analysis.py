@@ -116,7 +116,15 @@ class ManualVsMLComparison:
             elif credit_score < 650:
                 primary_rec = 'improve'
                 priorities = ['Credit_Repair']
-                urgency = ['CRITICAL_CREDIT_SCORE'] if credit_score < 500 else ['STABLE_FINANCIAL_POSITION']
+                urgency = ['CRITICAL_CREDIT_SCORE'] if credit_score < 500 else ['MODERATE_CREDIT_RISK']
+            elif dti_ratio >= 0.4:  # NEW: Moderate DTI risk
+                primary_rec = 'improve'
+                priorities = ['Debt_Management']
+                urgency = ['MODERATE_DEBT_RISK']
+            elif credit_score < 750:  # NEW: Lower credit threshold for monitoring
+                primary_rec = 'insights'
+                priorities = ['Credit_Monitoring']
+                urgency = ['CREDIT_WATCH']
             elif financial_health > 0.7:
                 # High financial health users get different content based on REAL engagement
                 if real_engagement_score > 0.6:
@@ -132,12 +140,12 @@ class ManualVsMLComparison:
                 else:
                     primary_rec = 'drivescore'  # Low engagement = gamification
                 priorities = ['General_Financial_Wellness']
-                urgency = ['STABLE_FINANCIAL_POSITION']
+                urgency = ['MONITOR_PROGRESS']  # NEW: More specific than stable
             else:
                 # Low financial health users always get improvement content
                 primary_rec = 'improve'
                 priorities = ['General_Financial_Wellness']
-                urgency = ['STABLE_FINANCIAL_POSITION']
+                urgency = ['IMPROVEMENT_NEEDED']  # NEW: More specific than stable
             
             # Add fixed randomness to prevent overfitting (seeded for reproducibility)
             # This uses the same random choices every run but still provides ML benefits
@@ -265,6 +273,8 @@ class ManualVsMLComparison:
         training_data['urgency_category'] = training_data['urgency_flags'].apply(
             lambda x: 'CRITICAL' if 'CRISIS' in str(x) or 'CRITICAL' in str(x)
                      else 'HIGH_RISK' if 'HIGH_DEBT' in str(x) or 'LEGAL' in str(x)
+                     else 'MODERATE_RISK' if 'MODERATE' in str(x) or 'CREDIT_WATCH' in str(x)
+                     else 'LOW_RISK' if 'MONITOR' in str(x) or 'IMPROVEMENT' in str(x)
                      else 'STABLE'
         )
         
@@ -559,6 +569,18 @@ class ManualVsMLComparison:
                 flags.append("HIGH_DEBT_BURDEN")
             if user_data['has_ccj']:
                 flags.append("LEGAL_ACTION")
+        elif category == 'MODERATE_RISK':
+            if user_data['dti_ratio'] >= 0.4:
+                flags.append("MODERATE_DEBT_RISK")
+            if user_data['credit_score'] < 750:
+                flags.append("CREDIT_WATCH")
+            if user_data['credit_score'] < 650:
+                flags.append("MODERATE_CREDIT_RISK")
+        elif category == 'LOW_RISK':
+            if user_data['dti_ratio'] > 0.3:
+                flags.append("MONITOR_PROGRESS")
+            else:
+                flags.append("IMPROVEMENT_NEEDED")
         else:  # STABLE
             flags.append("STABLE_FINANCIAL_POSITION")
         
